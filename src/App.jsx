@@ -4,10 +4,10 @@ import Login from './pages/Login';
 import SidebarLayout from './components/SidebarLayout';
 import VectaAITutor from './pages/VectaAITutor';
 import SpatialView from './pages/SpatialView';
+import DashboardSiswa from './pages/DashboardSiswa'; // <-- Baris impor ini sangat penting
 
-// Komponen Placeholder untuk Dashboard
+// Komponen Placeholder untuk Dashboard Guru (Untuk Siswa sudah dihapus karena memanggil file asli di atas)
 const DashboardGuru = () => <h1 className="text-3xl font-bold">Selamat Datang, Guru!</h1>;
-const DashboardSiswa = () => <h1 className="text-3xl font-bold">Area Belajar Siswa</h1>;
 
 export default function App() {
   return (
