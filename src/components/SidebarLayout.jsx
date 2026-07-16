@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, Route, FileEdit, MessageSquare, BarChart2, User, LogOut, Menu, X, Sun, Moon, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Route, FileEdit, MessageSquare, BarChart2, User, LogOut, Menu, X, Sun, Moon, ChevronDown, Box } from 'lucide-react';
 
 export default function SidebarLayout({ role }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
