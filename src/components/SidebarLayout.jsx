@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+// Di bawah ini adalah kunci utamanya, semua ikon (termasuk Box dan Users) sudah saya masukkan:
 import { LayoutDashboard, BookOpen, Route, FileEdit, MessageSquare, BarChart2, User, Users, LogOut, Menu, X, Sun, Moon, ChevronDown, Box } from 'lucide-react';
 
 export default function SidebarLayout({ role }) {
@@ -8,7 +9,6 @@ export default function SidebarLayout({ role }) {
   const [selectedClass, setSelectedClass] = useState('Semua Kelas');
   const location = useLocation();
 
-  // Efek untuk mengubah tema HTML
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -16,9 +16,6 @@ export default function SidebarLayout({ role }) {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
-
-// Tambahkan Users di baris import atas jika belum ada
-  // import { ..., Users } from 'lucide-react';
 
   const menuSiswa = [
     { name: 'Dashboard', path: '/dashboard/siswa', icon: <LayoutDashboard size={20} /> },
@@ -31,7 +28,6 @@ export default function SidebarLayout({ role }) {
     { name: 'Profil', path: '/dashboard/siswa/profil', icon: <User size={20} /> },
   ];
 
-  // MENU KHUSUS GURU
   const menuGuru = [
     { name: 'Dashboard', path: '/dashboard/guru', icon: <LayoutDashboard size={20} /> },
     { name: 'Manajemen Kelas', path: '/dashboard/guru/kelas', icon: <Users size={20} /> },
@@ -41,16 +37,13 @@ export default function SidebarLayout({ role }) {
     { name: 'Pengaturan', path: '/dashboard/guru/pengaturan', icon: <User size={20} /> },
   ];
 
-  // Menentukan menu mana yang dirender berdasarkan peran (role)
+  // Menentukan menu mana yang muncul
   const activeMenu = role === 'guru' ? menuGuru : menuSiswa;
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-800 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100">
       
-      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 dark:bg-slate-900 dark:border-slate-800 ${isSidebarOpen ? 'w-72 translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 ${!isSidebarOpen && 'md:w-0 md:overflow-hidden md:border-none'}`}>
-        
-        {/* Logo & Close Button (Mobile) */}
         <div className="flex h-20 items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-2xl font-black text-blue-600 dark:text-blue-500 tracking-tight">Vecta<span className="text-slate-800 dark:text-white">Learning</span></h2>
           <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-500 hover:text-slate-800 dark:hover:text-white">
@@ -58,10 +51,9 @@ export default function SidebarLayout({ role }) {
           </button>
         </div>
 
-        {/* Menu Navigasi */}
         <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
           <p className="px-3 mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">Menu Utama</p>
-          {menuSiswa.map((menu) => {
+          {activeMenu.map((menu) => {
             const isActive = location.pathname === menu.path;
             return (
               <Link
@@ -80,7 +72,6 @@ export default function SidebarLayout({ role }) {
           })}
         </nav>
 
-        {/* Area Profil Bawah */}
         <div className="border-t border-slate-100 p-4 dark:border-slate-800">
           <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10">
             <LogOut size={20} />
@@ -89,10 +80,7 @@ export default function SidebarLayout({ role }) {
         </div>
       </aside>
 
-      {/* AREA KONTEN UTAMA */}
       <main className="flex flex-1 flex-col overflow-hidden">
-        
-        {/* Topbar */}
         <header className="flex h-20 items-center justify-between bg-white px-6 border-b border-slate-200 dark:bg-slate-900 dark:border-slate-800 transition-colors">
           <div className="flex items-center gap-4">
             <button 
@@ -102,7 +90,6 @@ export default function SidebarLayout({ role }) {
               <Menu size={24} />
             </button>
             
-            {/* Dropdown Pemilihan Kelas */}
             <div className="relative hidden md:block">
               <select 
                 value={selectedClass}
@@ -118,7 +105,6 @@ export default function SidebarLayout({ role }) {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Tombol Ganti Tema (Terang/Gelap) */}
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
               className="rounded-full p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-amber-400 dark:hover:bg-slate-700 transition-colors"
@@ -126,20 +112,22 @@ export default function SidebarLayout({ role }) {
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
-            {/* Info Akun Sederhana */}
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
               <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-                IA
+                {role === 'guru' ? 'G' : 'IA'}
               </div>
               <div className="hidden md:block text-sm">
-                <p className="font-bold text-slate-800 dark:text-white">Imam Akbari</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Siswa Vecta</p>
+                <p className="font-bold text-slate-800 dark:text-white">
+                  {role === 'guru' ? 'Guru Basuki' : 'Imam Akbari'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {role === 'guru' ? 'Pengajar Vecta' : 'Siswa Vecta'}
+                </p>
               </div>
             </div>
           </div>
         </header>
 
-        {/* Konten Dinamis (Halaman) */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <Outlet context={{ selectedClass }} />
         </div>
