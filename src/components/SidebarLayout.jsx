@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
-// Di bawah ini adalah kunci utamanya, semua ikon (termasuk Box dan Users) sudah saya masukkan:
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Route, FileEdit, MessageSquare, BarChart2, User, Users, LogOut, Menu, X, Sun, Moon, ChevronDown, Box } from 'lucide-react';
+
+// IMPORT FIREBASE UNTUK LOGOUT
+import { auth } from '../lib/firebase';
+import { signOut } from 'firebase/auth';
 
 export default function SidebarLayout({ role }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [selectedClass, setSelectedClass] = useState('Semua Kelas');
+  
   const location = useLocation();
+  const navigate = useNavigate(); // Fungsi navigasi
 
   useEffect(() => {
     if (isDarkMode) {
@@ -16,6 +21,16 @@ export default function SidebarLayout({ role }) {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
+
+  // FUNGSI KELUAR (LOGOUT)
+  const handleLogout = async () => {
+    try {
+      await signOut(auth); // Menghapus sesi Firebase
+      navigate('/login'); // Melempar user kembali ke halaman Login
+    } catch (error) {
+      console.error('Gagal keluar:', error);
+    }
+  };
 
   const menuSiswa = [
     { name: 'Dashboard', path: '/dashboard/siswa', icon: <LayoutDashboard size={20} /> },
@@ -37,7 +52,6 @@ export default function SidebarLayout({ role }) {
     { name: 'Pengaturan', path: '/dashboard/guru/pengaturan', icon: <User size={20} /> },
   ];
 
-  // Menentukan menu mana yang muncul
   const activeMenu = role === 'guru' ? menuGuru : menuSiswa;
 
   return (
@@ -72,8 +86,12 @@ export default function SidebarLayout({ role }) {
           })}
         </nav>
 
+        {/* AREA TOMBOL KELUAR */}
         <div className="border-t border-slate-100 p-4 dark:border-slate-800">
-          <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10">
+          <button 
+            onClick={handleLogout} 
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+          >
             <LogOut size={20} />
             <span>Keluar</span>
           </button>
