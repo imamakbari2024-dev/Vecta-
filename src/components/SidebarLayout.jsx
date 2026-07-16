@@ -1,51 +1,131 @@
-import React from 'react';
-import { Outlet, Link } from 'react-router-dom';
-import { BookOpen, Box, MessageSquare, BarChart, Settings, LogOut } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, BookOpen, Route, FileEdit, MessageSquare, BarChart2, User, LogOut, Menu, X, Sun, Moon, ChevronDown } from 'lucide-react';
 
 export default function SidebarLayout({ role }) {
-  // Menu dinamis berdasarkan peran
-  const menuGuru = [
-    { name: 'Dashboard', path: '/dashboard/guru', icon: <BarChart /> },
-    { name: 'Kelas Saya', path: '/dashboard/guru/kelas', icon: <BookOpen /> },
-    { name: 'Vecta AI', path: '/dashboard/guru/ai', icon: <MessageSquare /> },
-    { name: 'Pengaturan', path: '/dashboard/guru/pengaturan', icon: <Settings /> },
-  ];
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedClass, setSelectedClass] = useState('Semua Kelas');
+  const location = useLocation();
+
+  // Efek untuk mengubah tema HTML
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const menuSiswa = [
-    { name: 'Dashboard', path: '/dashboard/siswa', icon: <BarChart /> },
-    { name: 'Materi 3D', path: '/dashboard/siswa/materi', icon: <Box /> },
-    { name: 'Ujian & Test', path: '/dashboard/siswa/ujian', icon: <BookOpen /> },
-    { name: 'Bertanya ke AI', path: '/dashboard/siswa/ai', icon: <MessageSquare /> },
+    { name: 'Dashboard', path: '/dashboard/siswa', icon: <LayoutDashboard size={20} /> },
+    { name: 'Akses Materi', path: '/dashboard/siswa/materi', icon: <BookOpen size={20} /> },
+    { name: 'Mengikuti Alur', path: '/dashboard/siswa/alur', icon: <Route size={20} /> },
+    { name: 'Ujian & Test', path: '/dashboard/siswa/ujian', icon: <FileEdit size={20} /> },
+    { name: 'Bertanya ke AI', path: '/dashboard/siswa/ai', icon: <MessageSquare size={20} /> },
+    { name: 'Analisis Hasil', path: '/dashboard/siswa/analisis', icon: <BarChart2 size={20} /> },
+    { name: 'Profil', path: '/dashboard/siswa/profil', icon: <User size={20} /> },
   ];
 
-  const menus = role === 'guru' ? menuGuru : menuSiswa;
-
   return (
-    <div className="flex h-screen w-full bg-slate-900 text-slate-100">
-      {/* Sidebar Kiri */}
-      <aside className="flex w-64 flex-col border-r border-slate-700 bg-slate-800 p-4">
-        <h2 className="mb-8 text-2xl font-bold text-blue-400">Vecta {role === 'guru' ? 'Guru' : 'Siswa'}</h2>
-        <nav className="flex-1 space-y-2">
-          {menus.map((menu) => (
-            <Link
-              key={menu.name}
-              to={menu.path}
-              className="flex items-center gap-3 rounded-lg p-3 text-slate-300 transition hover:bg-slate-700 hover:text-white"
-            >
-              {menu.icon}
-              <span>{menu.name}</span>
-            </Link>
-          ))}
+    <div className="flex h-screen w-full bg-slate-50 text-slate-800 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100">
+      
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 dark:bg-slate-900 dark:border-slate-800 ${isSidebarOpen ? 'w-72 translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 ${!isSidebarOpen && 'md:w-0 md:overflow-hidden md:border-none'}`}>
+        
+        {/* Logo & Close Button (Mobile) */}
+        <div className="flex h-20 items-center justify-between px-6 border-b border-slate-100 dark:border-slate-800">
+          <h2 className="text-2xl font-black text-blue-600 dark:text-blue-500 tracking-tight">Vecta<span className="text-slate-800 dark:text-white">Learning</span></h2>
+          <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-500 hover:text-slate-800 dark:hover:text-white">
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Menu Navigasi */}
+        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+          <p className="px-3 mb-4 text-xs font-bold uppercase tracking-wider text-slate-400">Menu Utama</p>
+          {menuSiswa.map((menu) => {
+            const isActive = location.pathname === menu.path;
+            return (
+              <Link
+                key={menu.name}
+                to={menu.path}
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                  isActive 
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-blue-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'
+                }`}
+              >
+                {menu.icon}
+                <span>{menu.name}</span>
+              </Link>
+            );
+          })}
         </nav>
-        <button className="flex items-center gap-3 rounded-lg p-3 text-red-400 transition hover:bg-red-500/10">
-          <LogOut />
-          <span>Keluar</span>
-        </button>
+
+        {/* Area Profil Bawah */}
+        <div className="border-t border-slate-100 p-4 dark:border-slate-800">
+          <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10">
+            <LogOut size={20} />
+            <span>Keluar</span>
+          </button>
+        </div>
       </aside>
 
-      {/* Area Konten Utama (Dinamis) */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
+      {/* AREA KONTEN UTAMA */}
+      <main className="flex flex-1 flex-col overflow-hidden">
+        
+        {/* Topbar */}
+        <header className="flex h-20 items-center justify-between bg-white px-6 border-b border-slate-200 dark:bg-slate-900 dark:border-slate-800 transition-colors">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
+            >
+              <Menu size={24} />
+            </button>
+            
+            {/* Dropdown Pemilihan Kelas */}
+            <div className="relative hidden md:block">
+              <select 
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pr-10 text-sm font-medium text-slate-700 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                <option value="Semua Kelas">Semua Kelas</option>
+                <option value="Fisika Kuantum Dasar">Fisika Kuantum Dasar</option>
+                <option value="Matematika Diskrit">Matematika Diskrit</option>
+              </select>
+              <ChevronDown size={16} className="absolute right-3 top-3 text-slate-500 pointer-events-none" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Tombol Ganti Tema (Terang/Gelap) */}
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="rounded-full p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-amber-400 dark:hover:bg-slate-700 transition-colors"
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
+            {/* Info Akun Sederhana */}
+            <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
+              <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
+                IA
+              </div>
+              <div className="hidden md:block text-sm">
+                <p className="font-bold text-slate-800 dark:text-white">Imam Akbari</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Siswa Vecta</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Konten Dinamis (Halaman) */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+          <Outlet context={{ selectedClass }} />
+        </div>
       </main>
     </div>
   );
