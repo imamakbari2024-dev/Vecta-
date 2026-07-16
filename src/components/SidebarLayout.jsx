@@ -17,9 +17,10 @@ export default function SidebarLayout({ role }) {
     }
   }, [isDarkMode]);
 
-  const menuSiswa = [
+const menuSiswa = [
     { name: 'Dashboard', path: '/dashboard/siswa', icon: <LayoutDashboard size={20} /> },
     { name: 'Akses Materi', path: '/dashboard/siswa/materi', icon: <BookOpen size={20} /> },
+    { name: 'Visualisasi 3D', path: '/dashboard/siswa/3d', icon: <Box size={20} /> }, // <-- Tambahan Baru
     { name: 'Mengikuti Alur', path: '/dashboard/siswa/alur', icon: <Route size={20} /> },
     { name: 'Ujian & Test', path: '/dashboard/siswa/ujian', icon: <FileEdit size={20} /> },
     { name: 'Bertanya ke AI', path: '/dashboard/siswa/ai', icon: <MessageSquare size={20} /> },
