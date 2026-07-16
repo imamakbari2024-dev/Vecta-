@@ -16,24 +16,31 @@ export default function Login() {
     setError('');
 
     // WORKAROUND: Ubah username menjadi format email dummy untuk Firebase Auth
-    // Pastikan di konsol Firebase Auth Anda sudah mendaftarkan user dengan format email ini
-    // WORKAROUND: Ubah username menjadi format email dummy untuk Firebase Auth
-let formatNama = username.toLowerCase().replace(/\s+/g, '');
+    let formatNama = username.toLowerCase().replace(/\s+/g, '');
 
-// Sistem Keamanan: Jika user tidak sengaja mengetik simbol @, kita potong dan ambil nama depannya saja
-if (formatNama.includes('@')) {
-  formatNama = formatNama.split('@')[0];
-}
+    // Sistem Keamanan: Jika user tidak sengaja mengetik simbol @, kita potong dan ambil nama depannya saja
+    if (formatNama.includes('@')) {
+      formatNama = formatNama.split('@')[0];
+    }
 
-const dummyEmail = `${formatNama}@vecta.local`;
+    const dummyEmail = `${formatNama}@vecta.local`;
+
+    // SISTEM PINTAR: Deteksi otomatis peran berdasarkan email yang dihasilkan
+    // Jika emailnya adalah basukivecta@vecta.local atau mengandung kata 'guru', maka dia adalah Guru
+    const isGuru = dummyEmail === 'basukivecta@vecta.local' || formatNama.includes('guru');
 
     try {
       await signInWithEmailAndPassword(auth, dummyEmail, password);
-      // Jika sukses, arahkan ke dashboard siswa
-      navigate('/dashboard/siswa');
+      
+      // Jika sukses, arahkan ke dashboard yang tepat berdasarkan deteksi sistem
+      if (isGuru) {
+        navigate('/dashboard/guru');
+      } else {
+        navigate('/dashboard/siswa');
+      }
     } catch (err) {
       console.error(err);
-      setError('Gagal masuk. Periksa kembali Nama Lengkap dan Kata Sandi Anda.');
+      setError('Gagal masuk. Periksa kembali Username dan Kata Sandi Anda.');
     } finally {
       setLoading(false);
     }
@@ -54,7 +61,7 @@ const dummyEmail = `${formatNama}@vecta.local`;
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-300">
-              Nama Lengkap (Username)
+              Nama Lengkap / Username
             </label>
             <input
               type="text"
@@ -62,7 +69,7 @@ const dummyEmail = `${formatNama}@vecta.local`;
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-slate-600 bg-slate-700 p-3 text-white focus:border-blue-500 focus:outline-none"
-              placeholder="Masukkan nama lengkap..."
+              placeholder="Masukkan nama Anda..."
             />
           </div>
           <div>
