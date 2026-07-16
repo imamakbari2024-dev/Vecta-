@@ -17,7 +17,15 @@ export default function Login() {
 
     // WORKAROUND: Ubah username menjadi format email dummy untuk Firebase Auth
     // Pastikan di konsol Firebase Auth Anda sudah mendaftarkan user dengan format email ini
-    const dummyEmail = `${username.toLowerCase().replace(/\s+/g, '')}@vecta.local`;
+    // WORKAROUND: Ubah username menjadi format email dummy untuk Firebase Auth
+let formatNama = username.toLowerCase().replace(/\s+/g, '');
+
+// Sistem Keamanan: Jika user tidak sengaja mengetik simbol @, kita potong dan ambil nama depannya saja
+if (formatNama.includes('@')) {
+  formatNama = formatNama.split('@')[0];
+}
+
+const dummyEmail = `${formatNama}@vecta.local`;
 
     try {
       await signInWithEmailAndPassword(auth, dummyEmail, password);
