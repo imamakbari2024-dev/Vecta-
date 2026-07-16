@@ -1,0 +1,3 @@
+export default function SpatialView() {
+  const videoRef = useRef(null);
+  // ...
