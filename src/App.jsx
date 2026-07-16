@@ -6,10 +6,13 @@ import DashboardSiswa from './pages/DashboardSiswa';
 import AksesMateri from './pages/AksesMateri';
 import SpatialView from './pages/SpatialView';
 import VectaAITutor from './pages/VectaAITutor';
-// Import file placeholder baru untuk menu yang kosong
+
+// Import file placeholder Siswa
 import { MengikutiAlur, UjianTest, AnalisisHasil, Profil } from './pages/HalamanKosong';
 
-const DashboardGuru = () => <h1 className="text-3xl font-bold">Selamat Datang, Guru!</h1>;
+// Import komponen Guru
+import DashboardGuru from './pages/DashboardGuru';
+import { KelolaKelas, KelolaMateri, KelolaAlur, TugasUjian, ManajemenSiswa, AnalisisGuru, ProfilGuru } from './pages/HalamanGuru';
 
 export default function App() {
   return (
@@ -30,9 +33,17 @@ export default function App() {
           <Route path="/dashboard/siswa/profil" element={<Profil />} />
         </Route>
 
-        {/* Rute Guru */}
+        {/* Rute Guru Lengkap */}
         <Route element={<SidebarLayout role="guru" />}>
           <Route path="/dashboard/guru" element={<DashboardGuru />} />
+          <Route path="/dashboard/guru/kelas" element={<KelolaKelas />} />
+          <Route path="/dashboard/guru/materi" element={<KelolaMateri />} />
+          <Route path="/dashboard/guru/alur" element={<KelolaAlur />} />
+          <Route path="/dashboard/guru/ujian" element={<TugasUjian />} />
+          <Route path="/dashboard/guru/siswa" element={<ManajemenSiswa />} />
+          <Route path="/dashboard/guru/analisis" element={<AnalisisGuru />} />
+          <Route path="/dashboard/guru/ai" element={<VectaAITutor />} />
+          <Route path="/dashboard/guru/profil" element={<ProfilGuru />} />
         </Route>
       </Routes>
     </Router>
