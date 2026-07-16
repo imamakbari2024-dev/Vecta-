@@ -17,16 +17,32 @@ export default function SidebarLayout({ role }) {
     }
   }, [isDarkMode]);
 
-const menuSiswa = [
+// Tambahkan Users di baris import atas jika belum ada
+  // import { ..., Users } from 'lucide-react';
+
+  const menuSiswa = [
     { name: 'Dashboard', path: '/dashboard/siswa', icon: <LayoutDashboard size={20} /> },
     { name: 'Akses Materi', path: '/dashboard/siswa/materi', icon: <BookOpen size={20} /> },
-    { name: 'Visualisasi 3D', path: '/dashboard/siswa/3d', icon: <Box size={20} /> }, // <-- Tambahan Baru
+    { name: 'Visualisasi 3D', path: '/dashboard/siswa/3d', icon: <Box size={20} /> },
     { name: 'Mengikuti Alur', path: '/dashboard/siswa/alur', icon: <Route size={20} /> },
     { name: 'Ujian & Test', path: '/dashboard/siswa/ujian', icon: <FileEdit size={20} /> },
     { name: 'Bertanya ke AI', path: '/dashboard/siswa/ai', icon: <MessageSquare size={20} /> },
     { name: 'Analisis Hasil', path: '/dashboard/siswa/analisis', icon: <BarChart2 size={20} /> },
     { name: 'Profil', path: '/dashboard/siswa/profil', icon: <User size={20} /> },
   ];
+
+  // MENU KHUSUS GURU
+  const menuGuru = [
+    { name: 'Dashboard', path: '/dashboard/guru', icon: <LayoutDashboard size={20} /> },
+    { name: 'Manajemen Kelas', path: '/dashboard/guru/kelas', icon: <Users size={20} /> },
+    { name: 'Modul & Materi', path: '/dashboard/guru/materi', icon: <BookOpen size={20} /> },
+    { name: 'Evaluasi & Ujian', path: '/dashboard/guru/ujian', icon: <FileEdit size={20} /> },
+    { name: 'Analisis Performa', path: '/dashboard/guru/analisis', icon: <BarChart2 size={20} /> },
+    { name: 'Pengaturan', path: '/dashboard/guru/pengaturan', icon: <User size={20} /> },
+  ];
+
+  // Menentukan menu mana yang dirender berdasarkan peran (role)
+  const activeMenu = role === 'guru' ? menuGuru : menuSiswa;
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-800 transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100">
