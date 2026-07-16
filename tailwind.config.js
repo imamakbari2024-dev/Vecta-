@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class', // Wajib ditambahkan untuk tombol Terang/Gelap
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
