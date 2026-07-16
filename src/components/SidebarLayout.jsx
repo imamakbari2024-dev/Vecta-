@@ -45,11 +45,14 @@ export default function SidebarLayout({ role }) {
 
   const menuGuru = [
     { name: 'Dashboard', path: '/dashboard/guru', icon: <LayoutDashboard size={20} /> },
-    { name: 'Manajemen Kelas', path: '/dashboard/guru/kelas', icon: <Users size={20} /> },
-    { name: 'Modul & Materi', path: '/dashboard/guru/materi', icon: <BookOpen size={20} /> },
-    { name: 'Evaluasi & Ujian', path: '/dashboard/guru/ujian', icon: <FileEdit size={20} /> },
-    { name: 'Analisis Performa', path: '/dashboard/guru/analisis', icon: <BarChart2 size={20} /> },
-    { name: 'Pengaturan', path: '/dashboard/guru/pengaturan', icon: <User size={20} /> },
+    { name: 'Kelola Kelas', path: '/dashboard/guru/kelas', icon: <Users size={20} /> },
+    { name: 'Kelola Materi', path: '/dashboard/guru/materi', icon: <BookOpen size={20} /> },
+    { name: 'Kelola Alur', path: '/dashboard/guru/alur', icon: <Route size={20} /> },
+    { name: 'Tugas & Ujian', path: '/dashboard/guru/ujian', icon: <FileEdit size={20} /> },
+    { name: 'Manajemen Siswa', path: '/dashboard/guru/siswa', icon: <Users size={20} /> },
+    { name: 'Analisis Belajar', path: '/dashboard/guru/analisis', icon: <BarChart2 size={20} /> },
+    { name: 'Bertanya ke AI', path: '/dashboard/guru/ai', icon: <MessageSquare size={20} /> },
+    { name: 'Profil', path: '/dashboard/guru/profil', icon: <User size={20} /> },
   ];
 
   const activeMenu = role === 'guru' ? menuGuru : menuSiswa;
