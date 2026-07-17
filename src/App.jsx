@@ -6,18 +6,14 @@ import DashboardSiswa from './pages/DashboardSiswa';
 import AksesMateri from './pages/AksesMateri';
 import SpatialView from './pages/SpatialView';
 import VectaAITutor from './pages/VectaAITutor';
-
-// IMPORT BARU: Mengambil fitur yang sudah kita bangun
 import MengikutiAlur from './pages/MengikutiAlur';
 import UjianTest from './pages/UjianTest'; 
-
-// IMPORT BARU: Halaman Analisis dan Profil Siswa yang asli
 import AnalisisHasil from './pages/AnalisisHasil';
 import ProfilSiswa from './pages/ProfilSiswa';
 
 // Import komponen Guru
 import DashboardGuru from './pages/DashboardGuru';
-// PERUBAHAN: Tambahkan KelolaVisualisasi3D di dalam kurung kurawal ini
+// Pastikan KelolaVisualisasi3D ikut terpanggil di sini
 import { KelolaKelas, KelolaMateri, KelolaVisualisasi3D, KelolaAlur, TugasUjian, ManajemenSiswa, AnalisisGuru, ProfilGuru } from './pages/HalamanGuru';
 
 export default function App() {
@@ -36,7 +32,6 @@ export default function App() {
           <Route path="/dashboard/siswa/ujian" element={<UjianTest />} />
           <Route path="/dashboard/siswa/ai" element={<VectaAITutor />} />
           <Route path="/dashboard/siswa/analisis" element={<AnalisisHasil />} />
-          {/* PERUBAHAN: Memanggil komponen ProfilSiswa */}
           <Route path="/dashboard/siswa/profil" element={<ProfilSiswa />} />
         </Route>
 
@@ -46,7 +41,7 @@ export default function App() {
           <Route path="/dashboard/guru/kelas" element={<KelolaKelas />} />
           <Route path="/dashboard/guru/materi" element={<KelolaMateri />} />
           
-          {/* RUTE BARU: Menambahkan rute Visualisasi 3D untuk Guru */}
+          {/* RUTE BARU: Ini adalah jalan menuju Kelola Visualisasi 3D */}
           <Route path="/dashboard/guru/3d" element={<KelolaVisualisasi3D />} />
           
           <Route path="/dashboard/guru/alur" element={<KelolaAlur />} />
