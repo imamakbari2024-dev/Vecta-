@@ -397,7 +397,7 @@ export const KelolaAlur = () => {
 };
 
 // ==========================================
-// 4. FITUR TUGAS & UJIAN (DENGAN AI)
+// 4. FITUR TUGAS & UJIAN (MENGGUNAKAN GROQ AI)
 // ==========================================
 export const TugasUjian = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -423,7 +423,7 @@ export const TugasUjian = () => {
     return () => { unsubKelas(); unsubTugas(); };
   }, []);
 
-  // FUNGSI MEMANGGIL GEMINI AI
+  // FUNGSI MEMANGGIL GROQ AI
   const handleGenerateAI = async () => {
     if (!judulTugas || !kelasId) {
       return alert("Pilih kelas dan isi 'Judul Evaluasi' terlebih dahulu agar AI tahu topik yang harus dibuat!");
@@ -432,32 +432,41 @@ export const TugasUjian = () => {
     setIsGenerating(true);
     const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
     
-    // Konteks prompt (Bisa disesuaikan bahasanya)
+    // Konteks prompt
     const prompt = `Sebagai seorang guru, buatkan soal ujian berjenis ${tipeTugas} untuk mata pelajaran ${kelasTerpilih.nama} dengan topik: ${judulTugas}. Buatkan 3 soal saja. Jika pilihan ganda, sertakan opsi A-D. Jangan berikan kunci jawaban langsung.`;
 
-    // 👇 GANTI DENGAN API KEY ANDA NANTI 👇
-    const GEMINI_API_KEY = "API_KEY_ANDA_DISINI"; 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // 👇 GANTI DENGAN API KEY GROQ ANDA DI SINI 👇
+    const GROQ_API_KEY = "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"; 
+    const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          model: "llama3-8b-8192", // Anda bisa mengubahnya ke mixtral-8x7b-32768 jika mau
+          messages: [
+            {
+              role: "user",
+              content: prompt
+            }
+          ]
         })
       });
 
-      if (!response.ok) throw new Error("Gagal terhubung ke AI");
+      if (!response.ok) throw new Error("Gagal terhubung ke Groq AI");
 
       const data = await response.json();
-      const hasilAI = data.candidates[0].content.parts[0].text;
+      const hasilAI = data.choices[0].message.content;
       
       // Masukkan hasil ke textarea
       setIsiSoal(hasilAI);
     } catch (error) {
       console.error(error);
-      alert("Gagal membuat soal dengan AI. Pastikan Anda sudah memasukkan API Key yang valid.");
+      alert("Gagal membuat soal dengan AI. Pastikan API Key Groq Anda valid.");
     } finally {
       setIsGenerating(false);
     }
@@ -519,7 +528,7 @@ export const TugasUjian = () => {
               </select>
             </div>
             
-            {/* TAMBAHAN TEXTAREA SOAL & TOMBOL AI */}
+            {/* TAMBAHAN TEXTAREA SOAL & TOMBOL AI GROQ */}
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Daftar Soal</label>
               <textarea 
@@ -535,7 +544,7 @@ export const TugasUjian = () => {
                 disabled={isGenerating || !judulTugas || !kelasId}
                 className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-3 font-bold text-white transition hover:opacity-90 disabled:opacity-50"
               >
-                {isGenerating ? "AI Sedang Berpikir..." : "✨ Generate Soal Otomatis"}
+                {isGenerating ? "Groq Sedang Berpikir..." : "✨ Generate Soal (Groq AI)"}
               </button>
             </div>
 
