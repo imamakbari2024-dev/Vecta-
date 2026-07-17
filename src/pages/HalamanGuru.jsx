@@ -3,7 +3,6 @@ import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, M
 
 // --- IMPORT FIREBASE ---
 import { db } from '../lib/firebase';
-// TAMBAHAN: menambahkan 'where' di dalam import
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where } from 'firebase/firestore'; 
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
@@ -265,7 +264,7 @@ export const KelolaMateri = () => {
 };
 
 // ==========================================
-// 3. FITUR KELOLA ALUR PEMBELAJARAN (BARU)
+// 3. FITUR KELOLA ALUR PEMBELAJARAN
 // ==========================================
 export const KelolaAlur = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -276,7 +275,6 @@ export const KelolaAlur = () => {
   const [judulTahap, setJudulTahap] = useState('');
   const [tipeTahap, setTipeTahap] = useState('Materi Bacaan');
 
-  // Ambil daftar kelas untuk Dropdown
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -284,7 +282,6 @@ export const KelolaAlur = () => {
     return () => unsubKelas();
   }, []);
 
-  // Ambil Alur berdasarkan kelas yang dipilih
   useEffect(() => {
     if (!kelasId) {
       setAlurPembelajaran([]);
@@ -307,7 +304,7 @@ export const KelolaAlur = () => {
         kelasId: kelasId,
         judul: judulTahap,
         tipe: tipeTahap,
-        urutan: alurPembelajaran.length + 1, // Mengatur urutan secara otomatis (Tahap 1, 2, dst)
+        urutan: alurPembelajaran.length + 1, 
         createdAt: serverTimestamp()
       });
       setJudulTahap('');
@@ -327,7 +324,6 @@ export const KelolaAlur = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Form Tambah Tahapan */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
           <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Plus size={20} className="text-blue-500" /> Tambah Tahapan
@@ -361,7 +357,6 @@ export const KelolaAlur = () => {
           </form>
         </div>
 
-        {/* Visualisasi Roadmap */}
         <div className="lg:col-span-2">
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 min-h-[400px]">
             <h3 className="mb-6 text-lg font-bold text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4">
@@ -402,9 +397,131 @@ export const KelolaAlur = () => {
 };
 
 // ==========================================
+// 4. FITUR TUGAS & UJIAN (BARU)
+// ==========================================
+export const TugasUjian = () => {
+  const [daftarKelas, setDaftarKelas] = useState([]);
+  const [daftarTugas, setDaftarTugas] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Form State
+  const [kelasId, setKelasId] = useState('');
+  const [judulTugas, setJudulTugas] = useState('');
+  const [tipeTugas, setTipeTugas] = useState('Pilihan Ganda');
+  const [batasWaktu, setBatasWaktu] = useState('');
+
+  // Mengambil data Kelas dan Tugas
+  useEffect(() => {
+    const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubTugas = onSnapshot(query(collection(db, 'tugas'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setDaftarTugas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsubKelas(); unsubTugas(); };
+  }, []);
+
+  const handleBuatTugas = async (e) => {
+    e.preventDefault();
+    if (!kelasId || !judulTugas || !batasWaktu) return alert('Lengkapi semua data!');
+    setLoading(true);
+
+    try {
+      const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
+      await addDoc(collection(db, 'tugas'), {
+        kelasId,
+        namaKelas: kelasTerpilih.nama,
+        judul: judulTugas,
+        tipe: tipeTugas,
+        deadline: batasWaktu,
+        status: 'Aktif',
+        createdAt: serverTimestamp()
+      });
+      setJudulTugas(''); setBatasWaktu('');
+    } catch (error) {
+      alert('Gagal membuat tugas.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Tugas & Ujian</h1>
+        <p className="text-slate-500 dark:text-slate-400">Buat evaluasi pembelajaran untuk mengukur pemahaman siswa.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Form Tambah Tugas */}
+        <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
+          <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white">Buat Ujian Baru</h3>
+          <form onSubmit={handleBuatTugas} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
+              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="">-- Pilih Kelas --</option>
+                {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Evaluasi</label>
+              <input type="text" value={judulTugas} onChange={(e) => setJudulTugas(e.target.value)} placeholder="Ujian Tengah Semester" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe</label>
+              <select value={tipeTugas} onChange={(e) => setTipeTugas(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="Pilihan Ganda">Pilihan Ganda</option>
+                <option value="Esai Panjang">Esai Panjang</option>
+                <option value="Upload Proyek">Upload Proyek Praktik</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Batas Waktu (Deadline)</label>
+              <input type="date" value={batasWaktu} onChange={(e) => setBatasWaktu(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            </div>
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
+              {loading ? "Menyimpan..." : "Publikasikan"}
+            </button>
+          </form>
+        </div>
+
+        {/* Daftar Tugas */}
+        <div className="lg:col-span-2 space-y-4">
+          {daftarTugas.length === 0 ? (
+            <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada tugas/ujian yang dibuat.</p>
+            </div>
+          ) : (
+            daftarTugas.map(tugas => (
+              <div key={tugas.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+                <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+                    <FileEdit size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 dark:text-white">{tugas.judul}</h4>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{tugas.namaKelas} • {tugas.tipe}</p>
+                  </div>
+                </div>
+                <div className="text-left sm:text-right w-full sm:w-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Tenggat Waktu</p>
+                  <p className="font-bold text-red-500">{tugas.deadline}</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
 // PLACEHOLDER SISANYA
 // ==========================================
-export const TugasUjian = () => <HalamanKosong icon={FileEdit} judul="Tugas & Ujian" deskripsi="Fitur pembuatan soal pilihan ganda, esai, dan tugas praktik." />;
 export const ManajemenSiswa = () => <HalamanKosong icon={Users} judul="Manajemen Siswa" deskripsi="Tabel daftar peserta kelas, kehadiran, dan status aktivitas siswa." />;
 export const AnalisisGuru = () => <HalamanKosong icon={BarChart2} judul="Analisis Pembelajaran" deskripsi="Grafik perkembangan nilai dan capaian kompetensi seluruh kelas." />;
 export const ProfilGuru = () => <HalamanKosong icon={User} judul="Profil Pengajar" deskripsi="Kelola informasi akun dan preferensi pengajar Anda." />;
