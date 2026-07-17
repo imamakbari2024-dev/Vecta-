@@ -17,7 +17,8 @@ import ProfilSiswa from './pages/ProfilSiswa';
 
 // Import komponen Guru
 import DashboardGuru from './pages/DashboardGuru';
-import { KelolaKelas, KelolaMateri, KelolaAlur, TugasUjian, ManajemenSiswa, AnalisisGuru, ProfilGuru } from './pages/HalamanGuru';
+// PERUBAHAN: Tambahkan KelolaVisualisasi3D di dalam kurung kurawal ini
+import { KelolaKelas, KelolaMateri, KelolaVisualisasi3D, KelolaAlur, TugasUjian, ManajemenSiswa, AnalisisGuru, ProfilGuru } from './pages/HalamanGuru';
 
 export default function App() {
   return (
@@ -44,6 +45,10 @@ export default function App() {
           <Route path="/dashboard/guru" element={<DashboardGuru />} />
           <Route path="/dashboard/guru/kelas" element={<KelolaKelas />} />
           <Route path="/dashboard/guru/materi" element={<KelolaMateri />} />
+          
+          {/* RUTE BARU: Menambahkan rute Visualisasi 3D untuk Guru */}
+          <Route path="/dashboard/guru/3d" element={<KelolaVisualisasi3D />} />
+          
           <Route path="/dashboard/guru/alur" element={<KelolaAlur />} />
           <Route path="/dashboard/guru/ujian" element={<TugasUjian />} />
           <Route path="/dashboard/guru/siswa" element={<ManajemenSiswa />} />
