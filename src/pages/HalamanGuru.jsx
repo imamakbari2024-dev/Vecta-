@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical, UploadCloud } from 'lucide-react';
+import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical } from 'lucide-react';
 
-// --- IMPORT FIREBASE ---
+// --- IMPORT FIREBASE (TANPA STORAGE BERBAYAR) ---
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where, updateDoc, doc } from 'firebase/firestore'; 
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // TAMBAHAN UNTUK UPLOAD
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
 const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
@@ -140,7 +139,7 @@ export const KelolaKelas = () => {
 };
 
 // ==========================================
-// 2. FITUR KELOLA MATERI (DENGAN DRAG & DROP 3D)
+// 2. FITUR KELOLA MATERI (100% GRATIS TANPA FIREBASE STORAGE)
 // ==========================================
 export const KelolaMateri = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -150,12 +149,7 @@ export const KelolaMateri = () => {
   const [kelasId, setKelasId] = useState('');
   const [judul, setJudul] = useState('');
   const [tipe, setTipe] = useState('Modul Teks/PDF');
-  
-  // State untuk Link Teks atau File Fisik
   const [linkMateri, setLinkMateri] = useState('');
-  const [fileMateri, setFileMateri] = useState(null); 
-
-  const storage = getStorage(db.app);
 
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -171,42 +165,26 @@ export const KelolaMateri = () => {
 
   const handleSimpanMateri = async (e) => {
     e.preventDefault();
-    if (!kelasId || !judul) return alert('Pilih kelas dan isi judul materi terlebih dahulu!');
-    
-    // Validasi Jika Tipe 3D tapi tidak ada file
-    if (tipe === 'Model 3D (.glb)' && !fileMateri) {
-      return alert('Pilih atau seret file 3D (.glb) Anda terlebih dahulu!');
-    }
-
+    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data, termasuk tautan/link materi!');
     setLoading(true);
 
     try {
       const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
-      let urlMateriFinal = linkMateri; // Default ke link jika bukan 3D
-
-      // JIKA TIPENYA 3D, UPLOAD FILE KE FIREBASE STORAGE
-      if (tipe === 'Model 3D (.glb)' && fileMateri) {
-        const fileRef = ref(storage, `materi_3d/${Date.now()}_${fileMateri.name}`);
-        await uploadBytes(fileRef, fileMateri); // Proses Upload
-        urlMateriFinal = await getDownloadURL(fileRef); // Dapatkan Link Hasil Upload
-      }
       
-      // Simpan Data ke Firestore
       await addDoc(collection(db, 'materi'), {
         kelasId: kelasId,
         namaKelas: kelasTerpilih.nama,
         judul: judul,
         tipe: tipe,
-        link: urlMateriFinal, // Link dari input atau hasil upload
+        link: linkMateri,
         createdAt: serverTimestamp()
       });
 
-      // Reset Form
-      setJudul(''); setLinkMateri(''); setFileMateri(null);
+      setJudul(''); setLinkMateri('');
       alert('Materi berhasil dipublikasikan!');
     } catch (error) {
       console.error('Error:', error);
-      alert('Gagal menyimpan materi. Pastikan aturan Storage Firebase sudah disetting.');
+      alert('Gagal menyimpan materi.');
     } finally {
       setLoading(false);
     }
@@ -216,7 +194,7 @@ export const KelolaMateri = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pustaka Materi</h1>
-        <p className="text-slate-500 dark:text-slate-400">Unggah dan kelola modul, video, atau visualisasi 3D untuk siswa.</p>
+        <p className="text-slate-500 dark:text-slate-400">Kelola modul, video, atau tautan file 3D untuk siswa Anda.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -247,32 +225,26 @@ export const KelolaMateri = () => {
               </select>
             </div>
 
-            {/* LOGIKA CONDITIONAL RENDERING FORM (Jika 3D = File Upload, Jika Tidak = Text Input) */}
-            {tipe === 'Model 3D (.glb)' ? (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Upload File .GLB</label>
-                <div className="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 dark:bg-slate-900/50 dark:border-slate-700 hover:bg-blue-100 transition cursor-pointer overflow-hidden group">
-                  <input 
-                    type="file" 
-                    accept=".glb"
-                    onChange={(e) => setFileMateri(e.target.files[0])}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                  />
-                  <UploadCloud className="text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
-                  <p className="text-sm font-bold text-blue-600 dark:text-blue-400 px-4 text-center">
-                    {fileMateri ? fileMateri.name : "Seret & Lepas file .glb di sini"}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tautan / Link (Opsional)</label>
-                <input type="text" value={linkMateri} onChange={(e) => setLinkMateri(e.target.value)} placeholder="Masukkan link GDrive / YouTube" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
-              </div>
-            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                {tipe === 'Model 3D (.glb)' ? 'Tautan File Raw GitHub (.glb)' : 'Tautan / Link (GDrive/YouTube)'}
+              </label>
+              <input 
+                type="text" 
+                value={linkMateri} 
+                onChange={(e) => setLinkMateri(e.target.value)} 
+                placeholder={tipe === 'Model 3D (.glb)' ? "Masukkan link format 'Raw' dari GitHub" : "Masukkan link GDrive / YouTube"} 
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" 
+              />
+              {tipe === 'Model 3D (.glb)' && (
+                 <p className="text-xs text-slate-400 mt-2">
+                   *Untuk file 3D, unggah file .glb Anda ke repositori GitHub, buka filenya, klik tombol <strong>"Raw"</strong>, lalu salin URL-nya ke sini.
+                 </p>
+              )}
+            </div>
 
             <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-4">
-              {loading ? "Mengunggah & Menyimpan..." : "Publikasikan Materi"}
+              {loading ? "Menyimpan..." : "Publikasikan Materi"}
             </button>
           </form>
         </div>
