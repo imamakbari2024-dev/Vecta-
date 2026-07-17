@@ -2,17 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Route, FileEdit, MessageSquare, BarChart2, User, Users, LogOut, Menu, X, Sun, Moon, ChevronDown, Box } from 'lucide-react';
 
-// IMPORT FIREBASE UNTUK LOGOUT
-import { auth } from '../lib/firebase';
+// IMPORT FIREBASE UNTUK LOGOUT & DATABASE
+import { auth, db } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 export default function SidebarLayout({ role }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // STATE BARU: Untuk menyimpan data kelas dari Firebase
+  const [daftarKelas, setDaftarKelas] = useState([]);
   const [selectedClass, setSelectedClass] = useState('Semua Kelas');
   
   const location = useLocation();
-  const navigate = useNavigate(); // Fungsi navigasi
+  const navigate = useNavigate();
+
+  // MENGAMBIL DATA KELAS DARI FIREBASE (Untuk Dropdown)
+  useEffect(() => {
+    const q = query(collection(db, 'kelas'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const kelasData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        nama: doc.data().nama
+      }));
+      setDaftarKelas(kelasData);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (isDarkMode) {
@@ -22,11 +39,10 @@ export default function SidebarLayout({ role }) {
     }
   }, [isDarkMode]);
 
-  // FUNGSI KELUAR (LOGOUT)
   const handleLogout = async () => {
     try {
-      await signOut(auth); // Menghapus sesi Firebase
-      navigate('/login'); // Melempar user kembali ke halaman Login
+      await signOut(auth);
+      navigate('/login');
     } catch (error) {
       console.error('Gagal keluar:', error);
     }
@@ -89,12 +105,8 @@ export default function SidebarLayout({ role }) {
           })}
         </nav>
 
-        {/* AREA TOMBOL KELUAR */}
         <div className="border-t border-slate-100 p-4 dark:border-slate-800">
-          <button 
-            onClick={handleLogout} 
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
-          >
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10">
             <LogOut size={20} />
             <span>Keluar</span>
           </button>
@@ -104,13 +116,11 @@ export default function SidebarLayout({ role }) {
       <main className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-20 items-center justify-between bg-white px-6 border-b border-slate-200 dark:bg-slate-900 dark:border-slate-800 transition-colors">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
-            >
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 dark:hover:text-white transition-colors">
               <Menu size={24} />
             </button>
             
+            {/* DROPDOWN KELAS OTOMATIS */}
             <div className="relative hidden md:block">
               <select 
                 value={selectedClass}
@@ -118,30 +128,25 @@ export default function SidebarLayout({ role }) {
                 className="appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 pr-10 text-sm font-medium text-slate-700 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 <option value="Semua Kelas">Semua Kelas</option>
-                <option value="Fisika Kuantum Dasar">Fisika Kuantum Dasar</option>
-                <option value="Matematika Diskrit">Matematika Diskrit</option>
+                {daftarKelas.map((kelas) => (
+                  <option key={kelas.id} value={kelas.id}>{kelas.nama}</option>
+                ))}
               </select>
               <ChevronDown size={16} className="absolute right-3 top-3 text-slate-500 pointer-events-none" />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="rounded-full p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-amber-400 dark:hover:bg-slate-700 transition-colors"
-            >
+            <button onClick={() => setIsDarkMode(!isDarkMode)} className="rounded-full p-2.5 text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-amber-400 dark:hover:bg-slate-700 transition-colors">
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
               <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-                {role === 'guru' ? 'G' : 'IA'}
+                {role === 'guru' ? 'G' : 'S'}
               </div>
               <div className="hidden md:block text-sm">
                 <p className="font-bold text-slate-800 dark:text-white">
-                  {role === 'guru' ? 'Guru Basuki' : 'Imam Akbari'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
                   {role === 'guru' ? 'Pengajar Vecta' : 'Siswa Vecta'}
                 </p>
               </div>
