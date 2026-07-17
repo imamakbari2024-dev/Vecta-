@@ -72,6 +72,10 @@ export default function SidebarLayout({ role }) {
     { name: 'Dashboard', path: '/dashboard/guru', icon: <LayoutDashboard size={20} /> },
     { name: 'Kelola Kelas', path: '/dashboard/guru/kelas', icon: <Users size={20} /> },
     { name: 'Kelola Materi', path: '/dashboard/guru/materi', icon: <BookOpen size={20} /> },
+    
+    // --- INI ADALAH MENU BARU YANG DITAMBAHKAN ---
+    { name: 'Kelola Visualisasi 3D', path: '/dashboard/guru/3d', icon: <Box size={20} /> },
+    
     { name: 'Kelola Alur', path: '/dashboard/guru/alur', icon: <Route size={20} /> },
     { name: 'Tugas & Ujian', path: '/dashboard/guru/ujian', icon: <FileEdit size={20} /> },
     { name: 'Manajemen Siswa', path: '/dashboard/guru/siswa', icon: <Users size={20} /> },
@@ -152,12 +156,10 @@ export default function SidebarLayout({ role }) {
             {/* BAGIAN PROFIL OTOMATIS */}
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
               <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm uppercase">
-                {/* Mengambil huruf pertama email/nama */}
                 {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || (role === 'guru' ? 'G' : 'S')}
               </div>
               <div className="hidden md:block text-sm">
                 <p className="font-bold text-slate-800 dark:text-white capitalize">
-                  {/* Memisahkan email sebelum '@' sebagai username jika tidak ada displayName */}
                   {currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Pengguna'}
                 </p>
                 <p className="text-xs text-slate-500 capitalize">{role}</p>
