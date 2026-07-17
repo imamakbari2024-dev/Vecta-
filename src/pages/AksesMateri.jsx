@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, AlertCircle, ExternalLink } from 'lucide-react';
+import { BookOpen, AlertCircle, ExternalLink, Box } from 'lucide-react'; // Box ditambahkan untuk ikon 3D
+import { useNavigate } from 'react-router-dom'; // IMPORT NAVIGASI
 
 // IMPORT FIREBASE
 import { db, auth } from '../lib/firebase';
@@ -9,6 +10,8 @@ export default function AksesMateri() {
   const [kelasDiikuti, setKelasDiikuti] = useState([]);
   const [materiKelas, setMateriKelas] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  const navigate = useNavigate(); // INISIALISASI FUNGSI PINDAH HALAMAN
 
   // 1. Ambil kelas yang diikuti siswa
   useEffect(() => {
@@ -54,7 +57,7 @@ export default function AksesMateri() {
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {materiKelas.map((materi) => (
-            <div key={materi.id} className="flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+            <div key={materi.id} className="flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 hover:border-blue-300 transition-colors">
               <div>
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
                   <BookOpen size={24} />
@@ -64,14 +67,25 @@ export default function AksesMateri() {
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{materi.tipe}</p>
               </div>
 
-              <a 
-                href={materi.link} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
-              >
-                Buka Materi <ExternalLink size={16} />
-              </a>
+              {/* LOGIKA TOMBOL: Membedakan tombol 3D dan tombol materi biasa */}
+              {materi.tipe === 'Model 3D (.glb)' ? (
+                <button 
+                  onClick={() => navigate('/visualisasi-3d')} 
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white transition hover:bg-indigo-700"
+                >
+                  Buka di Visualisasi 3D <Box size={16} />
+                </button>
+              ) : (
+                <a 
+                  href={materi.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                >
+                  Buka Materi <ExternalLink size={16} />
+                </a>
+              )}
+
             </div>
           ))}
         </div>
