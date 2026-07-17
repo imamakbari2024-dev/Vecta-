@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
+import { getFirestore } from 'firebase/firestore'; // TAMBAHAN: Mengimpor Firestore
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -18,6 +19,7 @@ const app = initializeApp(firebaseConfig);
 
 // Ekspor modul yang dibutuhkan
 export const auth = getAuth(app);
+export const db = getFirestore(app); // TAMBAHAN: Mengekspor fungsi database agar bisa dipakai di halaman lain
 
 // Analytics hanya dieksekusi jika berjalan di lingkungan browser
 export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
