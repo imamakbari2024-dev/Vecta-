@@ -152,8 +152,8 @@ export const KelolaMateri = () => {
   const [linkMateri, setLinkMateri] = useState('');
 
   // Konfigurasi Cloudinary
-  const CLOUD_NAME = "NAMA_CLOUD_ANDA"; // Ganti dengan Cloud Name Anda
-  const UPLOAD_PRESET = "PRESET_ANDA";   // Ganti dengan Upload Preset Anda
+  const CLOUD_NAME = "pnnyexrs"; // Ganti dengan Cloud Name Anda
+  const UPLOAD_PRESET = "vecta_upload";   // Ganti dengan Upload Preset Anda
 
   useEffect(() => {
     // (Kode fetch kelas & materi tetap sama seperti sebelumnya)
