@@ -1,5 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical } from 'lucide-react';
+
+// --- IMPORT FIREBASE ---
+import { db } from '../lib/firebase';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
 const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
@@ -12,14 +16,26 @@ const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
 
 // --- FITUR UTAMA: KELOLA KELAS & GENERATE KODE ---
 export const KelolaKelas = () => {
-  // State untuk menyimpan daftar kelas (Simulasi Database)
-  const [daftarKelas, setDaftarKelas] = useState([
-    { id: 1, nama: "Sistem Kontrol Mekatronika", kode: "MEK-7X2A", siswa: 32 },
-    { id: 2, nama: "Pemrograman Mikrokontroler (ESP32)", kode: "ESP-9B4Q", siswa: 28 }
-  ]);
-  
+  // State dibiarkan kosong di awal karena data akan ditarik dari Firebase
+  const [daftarKelas, setDaftarKelas] = useState([]);
   const [namaKelasBaru, setNamaKelasBaru] = useState('');
   const [copiedCode, setCopiedCode] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // MENGAMBIL DATA DARI FIREBASE SECARA REAL-TIME
+  useEffect(() => {
+    const q = query(collection(db, 'kelas'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const kelasData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setDaftarKelas(kelasData);
+    });
+    
+    // Membersihkan listener saat pindah halaman
+    return () => unsubscribe(); 
+  }, []);
 
   // Fungsi membuat kode acak 6 karakter
   const generateKodeUnik = () => {
@@ -31,20 +47,27 @@ export const KelolaKelas = () => {
     return result;
   };
 
-  // Fungsi menyimpan kelas baru
-  const handleBuatKelas = (e) => {
+  // MENYIMPAN KELAS BARU KE FIREBASE
+  const handleBuatKelas = async (e) => {
     e.preventDefault();
     if (!namaKelasBaru.trim()) return;
+    
+    setLoading(true); // Mengaktifkan efek loading pada tombol
 
-    const kelasBaru = {
-      id: Date.now(),
-      nama: namaKelasBaru,
-      kode: generateKodeUnik(),
-      siswa: 0 // Kelas baru mulai dengan 0 siswa
-    };
-
-    setDaftarKelas([kelasBaru, ...daftarKelas]);
-    setNamaKelasBaru(''); // Kosongkan input
+    try {
+      await addDoc(collection(db, 'kelas'), {
+        nama: namaKelasBaru,
+        kode: generateKodeUnik(),
+        siswa: [], // Dibuat array kosong, nanti diisi ID siswa yang bergabung
+        createdAt: serverTimestamp() // Catat waktu pembuatan
+      });
+      setNamaKelasBaru(''); // Kosongkan input setelah sukses
+    } catch (error) {
+      console.error("Gagal menyimpan kelas:", error);
+      alert("Terjadi kesalahan saat menyimpan kelas ke database.");
+    } finally {
+      setLoading(false); // Mematikan efek loading
+    }
   };
 
   // Fungsi menyalin kode ke clipboard
@@ -80,42 +103,52 @@ export const KelolaKelas = () => {
             </div>
             <button 
               type="submit"
-              className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700"
+              disabled={loading}
+              className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
-              Generate Kode Kelas
+              {loading ? "Menyimpan ke Server..." : "Generate Kode Kelas"}
             </button>
           </form>
         </div>
 
         {/* Daftar Kelas Aktif (Kanan) */}
         <div className="lg:col-span-2 space-y-4">
-          {daftarKelas.map((kelas) => (
-            <div key={kelas.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 transition-all hover:border-blue-300 dark:hover:border-blue-600">
-              <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-                  <Users size={24} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-800 dark:text-white">{kelas.nama}</h4>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">{kelas.siswa} Siswa Terdaftar</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 w-full sm:w-auto bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
-                <div className="px-3 text-center">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Kode Akses</p>
-                  <p className="font-mono font-bold text-slate-800 dark:text-blue-400 tracking-widest">{kelas.kode}</p>
-                </div>
-                <button 
-                  onClick={() => salinKode(kelas.kode)}
-                  className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-colors"
-                  title="Salin Kode"
-                >
-                  {copiedCode === kelas.kode ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
-                </button>
-              </div>
+          {daftarKelas.length === 0 ? (
+            <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada kelas yang dibuat.</p>
             </div>
-          ))}
+          ) : (
+            daftarKelas.map((kelas) => (
+              <div key={kelas.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 transition-all hover:border-blue-300 dark:hover:border-blue-600">
+                <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 dark:text-white">{kelas.nama}</h4>
+                    {/* Mengambil jumlah siswa dari panjang array di Firebase */}
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      {kelas.siswa ? kelas.siswa.length : 0} Siswa Terdaftar
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto bg-slate-50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-slate-700">
+                  <div className="px-3 text-center">
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Kode Akses</p>
+                    <p className="font-mono font-bold text-slate-800 dark:text-blue-400 tracking-widest">{kelas.kode}</p>
+                  </div>
+                  <button 
+                    onClick={() => salinKode(kelas.kode)}
+                    className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-colors"
+                    title="Salin Kode"
+                  >
+                    {copiedCode === kelas.kode ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
