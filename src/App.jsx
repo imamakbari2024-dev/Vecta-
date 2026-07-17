@@ -9,10 +9,11 @@ import VectaAITutor from './pages/VectaAITutor';
 
 // IMPORT BARU: Mengambil fitur yang sudah kita bangun
 import MengikutiAlur from './pages/MengikutiAlur';
-import UjianTest from './pages/UjianTest'; // <-- TAMBAHAN: Import UjianTest yang asli
+import UjianTest from './pages/UjianTest'; 
 
-// Import file placeholder Siswa (UjianTest sudah dihapus dari dalam kurung ini)
-import { AnalisisHasil, Profil } from './pages/HalamanKosong';
+// IMPORT BARU: Halaman Analisis dan Profil Siswa yang asli
+import AnalisisHasil from './pages/AnalisisHasil';
+import ProfilSiswa from './pages/ProfilSiswa';
 
 // Import komponen Guru
 import DashboardGuru from './pages/DashboardGuru';
@@ -34,7 +35,8 @@ export default function App() {
           <Route path="/dashboard/siswa/ujian" element={<UjianTest />} />
           <Route path="/dashboard/siswa/ai" element={<VectaAITutor />} />
           <Route path="/dashboard/siswa/analisis" element={<AnalisisHasil />} />
-          <Route path="/dashboard/siswa/profil" element={<Profil />} />
+          {/* PERUBAHAN: Memanggil komponen ProfilSiswa */}
+          <Route path="/dashboard/siswa/profil" element={<ProfilSiswa />} />
         </Route>
 
         {/* Rute Guru Lengkap */}
