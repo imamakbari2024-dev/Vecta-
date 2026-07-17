@@ -7,11 +7,12 @@ import AksesMateri from './pages/AksesMateri';
 import SpatialView from './pages/SpatialView';
 import VectaAITutor from './pages/VectaAITutor';
 
-// IMPORT BARU: Mengambil fitur Roadmap (Alur) Siswa yang asli
+// IMPORT BARU: Mengambil fitur yang sudah kita bangun
 import MengikutiAlur from './pages/MengikutiAlur';
+import UjianTest from './pages/UjianTest'; // <-- TAMBAHAN: Import UjianTest yang asli
 
-// Import file placeholder Siswa (MengikutiAlur sudah dihapus dari sini)
-import { UjianTest, AnalisisHasil, Profil } from './pages/HalamanKosong';
+// Import file placeholder Siswa (UjianTest sudah dihapus dari dalam kurung ini)
+import { AnalisisHasil, Profil } from './pages/HalamanKosong';
 
 // Import komponen Guru
 import DashboardGuru from './pages/DashboardGuru';
