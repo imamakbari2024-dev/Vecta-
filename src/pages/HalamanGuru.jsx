@@ -397,17 +397,19 @@ export const KelolaAlur = () => {
 };
 
 // ==========================================
-// 4. FITUR TUGAS & UJIAN
+// 4. FITUR TUGAS & UJIAN (DENGAN AI)
 // ==========================================
 export const TugasUjian = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [daftarTugas, setDaftarTugas] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false); // State untuk loading AI
 
   const [kelasId, setKelasId] = useState('');
   const [judulTugas, setJudulTugas] = useState('');
   const [tipeTugas, setTipeTugas] = useState('Pilihan Ganda');
   const [batasWaktu, setBatasWaktu] = useState('');
+  const [isiSoal, setIsiSoal] = useState(''); // State untuk teks soal
 
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -421,9 +423,49 @@ export const TugasUjian = () => {
     return () => { unsubKelas(); unsubTugas(); };
   }, []);
 
+  // FUNGSI MEMANGGIL GEMINI AI
+  const handleGenerateAI = async () => {
+    if (!judulTugas || !kelasId) {
+      return alert("Pilih kelas dan isi 'Judul Evaluasi' terlebih dahulu agar AI tahu topik yang harus dibuat!");
+    }
+
+    setIsGenerating(true);
+    const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
+    
+    // Konteks prompt (Bisa disesuaikan bahasanya)
+    const prompt = `Sebagai seorang guru, buatkan soal ujian berjenis ${tipeTugas} untuk mata pelajaran ${kelasTerpilih.nama} dengan topik: ${judulTugas}. Buatkan 3 soal saja. Jika pilihan ganda, sertakan opsi A-D. Jangan berikan kunci jawaban langsung.`;
+
+    // 👇 GANTI DENGAN API KEY ANDA NANTI 👇
+    const GEMINI_API_KEY = "API_KEY_ANDA_DISINI"; 
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      if (!response.ok) throw new Error("Gagal terhubung ke AI");
+
+      const data = await response.json();
+      const hasilAI = data.candidates[0].content.parts[0].text;
+      
+      // Masukkan hasil ke textarea
+      setIsiSoal(hasilAI);
+    } catch (error) {
+      console.error(error);
+      alert("Gagal membuat soal dengan AI. Pastikan Anda sudah memasukkan API Key yang valid.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const handleBuatTugas = async (e) => {
     e.preventDefault();
-    if (!kelasId || !judulTugas || !batasWaktu) return alert('Lengkapi semua data!');
+    if (!kelasId || !judulTugas || !batasWaktu || !isiSoal) return alert('Lengkapi semua data termasuk daftar soal!');
     setLoading(true);
 
     try {
@@ -433,13 +475,14 @@ export const TugasUjian = () => {
         namaKelas: kelasTerpilih.nama,
         judul: judulTugas,
         tipe: tipeTugas,
+        soal: isiSoal, // Menyimpan soal hasil AI ke database
         deadline: batasWaktu,
         status: 'Aktif',
         createdAt: serverTimestamp()
       });
-      setJudulTugas(''); setBatasWaktu('');
+      setJudulTugas(''); setBatasWaktu(''); setIsiSoal('');
     } catch (error) {
-      alert('Gagal membuat tugas.');
+      alert('Gagal mempublikasikan tugas.');
     } finally {
       setLoading(false);
     }
@@ -449,7 +492,7 @@ export const TugasUjian = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Tugas & Ujian</h1>
-        <p className="text-slate-500 dark:text-slate-400">Buat evaluasi pembelajaran untuk mengukur pemahaman siswa.</p>
+        <p className="text-slate-500 dark:text-slate-400">Buat evaluasi pembelajaran secara manual atau menggunakan bantuan AI.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -465,7 +508,7 @@ export const TugasUjian = () => {
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Evaluasi</label>
-              <input type="text" value={judulTugas} onChange={(e) => setJudulTugas(e.target.value)} placeholder="Ujian Tengah Semester" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+              <input type="text" value={judulTugas} onChange={(e) => setJudulTugas(e.target.value)} placeholder="Contoh: Hukum Newton" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe</label>
@@ -475,11 +518,32 @@ export const TugasUjian = () => {
                 <option value="Upload Proyek">Upload Proyek Praktik</option>
               </select>
             </div>
+            
+            {/* TAMBAHAN TEXTAREA SOAL & TOMBOL AI */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Daftar Soal</label>
+              <textarea 
+                value={isiSoal} 
+                onChange={(e) => setIsiSoal(e.target.value)} 
+                rows="5" 
+                placeholder="Ketik manual atau klik Generate AI di bawah..." 
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+              ></textarea>
+              <button 
+                type="button" 
+                onClick={handleGenerateAI}
+                disabled={isGenerating || !judulTugas || !kelasId}
+                className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-3 font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {isGenerating ? "AI Sedang Berpikir..." : "✨ Generate Soal Otomatis"}
+              </button>
+            </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Batas Waktu (Deadline)</label>
               <input type="date" value={batasWaktu} onChange={(e) => setBatasWaktu(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
             </div>
-            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-2">
               {loading ? "Menyimpan..." : "Publikasikan"}
             </button>
           </form>
