@@ -11,12 +11,21 @@ export default function SidebarLayout({ role }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
-  // STATE BARU: Untuk menyimpan data kelas dari Firebase
+  // STATE BARU
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [selectedClass, setSelectedClass] = useState('Semua Kelas');
+  const [currentUser, setCurrentUser] = useState(null); // Menyimpan data user yang login
   
   const location = useLocation();
   const navigate = useNavigate();
+
+  // MENDETEKSI USER YANG SEDANG LOGIN
+  useEffect(() => {
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribeAuth();
+  }, []);
 
   // MENGAMBIL DATA KELAS DARI FIREBASE (Untuk Dropdown)
   useEffect(() => {
@@ -120,7 +129,6 @@ export default function SidebarLayout({ role }) {
               <Menu size={24} />
             </button>
             
-            {/* DROPDOWN KELAS OTOMATIS */}
             <div className="relative hidden md:block">
               <select 
                 value={selectedClass}
@@ -141,14 +149,18 @@ export default function SidebarLayout({ role }) {
               {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
             </button>
 
+            {/* BAGIAN PROFIL OTOMATIS */}
             <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
-              <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm">
-                {role === 'guru' ? 'G' : 'S'}
+              <div className="h-9 w-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm uppercase">
+                {/* Mengambil huruf pertama email/nama */}
+                {currentUser?.displayName?.charAt(0) || currentUser?.email?.charAt(0) || (role === 'guru' ? 'G' : 'S')}
               </div>
               <div className="hidden md:block text-sm">
-                <p className="font-bold text-slate-800 dark:text-white">
-                  {role === 'guru' ? 'Pengajar Vecta' : 'Siswa Vecta'}
+                <p className="font-bold text-slate-800 dark:text-white capitalize">
+                  {/* Memisahkan email sebelum '@' sebagai username jika tidak ada displayName */}
+                  {currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Pengguna'}
                 </p>
+                <p className="text-xs text-slate-500 capitalize">{role}</p>
               </div>
             </div>
           </div>
