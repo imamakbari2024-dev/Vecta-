@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { FileEdit, CheckCircle, Clock, Send } from 'lucide-react';
 
 export default function UjianTest() {
@@ -35,14 +35,27 @@ export default function UjianTest() {
   // 2. Ambil tugas berdasarkan kelas yang dipilih
   useEffect(() => {
     if (!kelasIdTerpilih) return;
-    const qTugas = query(collection(db, 'tugas'), where('kelasId', '==', kelasIdTerpilih), orderBy('createdAt', 'desc'));
+    
+    // PERBAIKAN: Menghapus orderBy dari kueri Firebase untuk menghindari error Composite Index
+    const qTugas = query(collection(db, 'tugas'), where('kelasId', '==', kelasIdTerpilih));
+    
     const unsubTugas = onSnapshot(qTugas, (snapshot) => {
-      setDaftarTugas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const dataTugas = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // PERBAIKAN: Mengurutkan data secara manual menggunakan JavaScript (tugas terbaru di atas)
+      dataTugas.sort((a, b) => {
+        const waktuA = a.createdAt?.toMillis() || 0;
+        const waktuB = b.createdAt?.toMillis() || 0;
+        return waktuB - waktuA;
+      });
+
+      setDaftarTugas(dataTugas);
     });
+    
     return () => unsubTugas();
   }, [kelasIdTerpilih]);
 
-  // 3. FUNGSI INTI: Kirim Jawaban & Kirim Log Aktivitas
+  // 3. Kirim Jawaban & Kirim Log Aktivitas
   const handleKirimJawaban = async (e) => {
     e.preventDefault();
     if (!jawaban.trim()) return alert("Jawaban tidak boleh kosong!");
