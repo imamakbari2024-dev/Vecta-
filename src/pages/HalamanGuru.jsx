@@ -3,7 +3,8 @@ import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, M
 
 // --- IMPORT FIREBASE ---
 import { db } from '../lib/firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
+// TAMBAHAN: menambahkan 'where' di dalam import
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where } from 'firebase/firestore'; 
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
 const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
@@ -14,15 +15,15 @@ const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
   </div>
 );
 
-// --- FITUR UTAMA: KELOLA KELAS & GENERATE KODE ---
+// ==========================================
+// 1. FITUR KELOLA KELAS
+// ==========================================
 export const KelolaKelas = () => {
-  // State dibiarkan kosong di awal karena data akan ditarik dari Firebase
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [namaKelasBaru, setNamaKelasBaru] = useState('');
   const [copiedCode, setCopiedCode] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // MENGAMBIL DATA DARI FIREBASE SECARA REAL-TIME
   useEffect(() => {
     const q = query(collection(db, 'kelas'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -32,12 +33,9 @@ export const KelolaKelas = () => {
       }));
       setDaftarKelas(kelasData);
     });
-    
-    // Membersihkan listener saat pindah halaman
     return () => unsubscribe(); 
   }, []);
 
-  // Fungsi membuat kode acak 6 karakter
   const generateKodeUnik = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -47,30 +45,27 @@ export const KelolaKelas = () => {
     return result;
   };
 
-  // MENYIMPAN KELAS BARU KE FIREBASE
   const handleBuatKelas = async (e) => {
     e.preventDefault();
     if (!namaKelasBaru.trim()) return;
-    
-    setLoading(true); // Mengaktifkan efek loading pada tombol
+    setLoading(true);
 
     try {
       await addDoc(collection(db, 'kelas'), {
         nama: namaKelasBaru,
         kode: generateKodeUnik(),
-        siswa: [], // Dibuat array kosong, nanti diisi ID siswa yang bergabung
-        createdAt: serverTimestamp() // Catat waktu pembuatan
+        siswa: [],
+        createdAt: serverTimestamp()
       });
-      setNamaKelasBaru(''); // Kosongkan input setelah sukses
+      setNamaKelasBaru('');
     } catch (error) {
       console.error("Gagal menyimpan kelas:", error);
       alert("Terjadi kesalahan saat menyimpan kelas ke database.");
     } finally {
-      setLoading(false); // Mematikan efek loading
+      setLoading(false);
     }
   };
 
-  // Fungsi menyalin kode ke clipboard
   const salinKode = (kode) => {
     navigator.clipboard.writeText(kode);
     setCopiedCode(kode);
@@ -85,7 +80,6 @@ export const KelolaKelas = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Form Buat Kelas Baru (Kiri) */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
           <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Plus size={20} className="text-blue-500" /> Buat Kelas Baru
@@ -101,17 +95,12 @@ export const KelolaKelas = () => {
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
               />
             </div>
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
               {loading ? "Menyimpan ke Server..." : "Generate Kode Kelas"}
             </button>
           </form>
         </div>
 
-        {/* Daftar Kelas Aktif (Kanan) */}
         <div className="lg:col-span-2 space-y-4">
           {daftarKelas.length === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
@@ -126,7 +115,6 @@ export const KelolaKelas = () => {
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-800 dark:text-white">{kelas.nama}</h4>
-                    {/* Mengambil jumlah siswa dari panjang array di Firebase */}
                     <p className="text-sm text-slate-500 dark:text-slate-400">
                       {kelas.siswa ? kelas.siswa.length : 0} Siswa Terdaftar
                     </p>
@@ -138,11 +126,7 @@ export const KelolaKelas = () => {
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Kode Akses</p>
                     <p className="font-mono font-bold text-slate-800 dark:text-blue-400 tracking-widest">{kelas.kode}</p>
                   </div>
-                  <button 
-                    onClick={() => salinKode(kelas.kode)}
-                    className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-colors"
-                    title="Salin Kode"
-                  >
+                  <button onClick={() => salinKode(kelas.kode)} className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white transition-colors" title="Salin Kode">
                     {copiedCode === kelas.kode ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
                   </button>
                 </div>
@@ -155,27 +139,25 @@ export const KelolaKelas = () => {
   );
 };
 
-// --- Export Placeholder Lainnya ---
+// ==========================================
+// 2. FITUR KELOLA MATERI
+// ==========================================
 export const KelolaMateri = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [daftarMateri, setDaftarMateri] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Form State
   const [kelasId, setKelasId] = useState('');
   const [judul, setJudul] = useState('');
   const [deskripsi, setDeskripsi] = useState('');
   const [tipe, setTipe] = useState('Modul Teks/PDF');
   const [linkMateri, setLinkMateri] = useState('');
 
-  // Mengambil data Kelas dan Materi dari Firebase
   useEffect(() => {
-    // Ambil Kelas untuk Dropdown
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Ambil Daftar Materi
     const unsubMateri = onSnapshot(query(collection(db, 'materi'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDaftarMateri(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
@@ -201,7 +183,6 @@ export const KelolaMateri = () => {
         createdAt: serverTimestamp()
       });
 
-      // Reset form setelah berhasil
       setJudul(''); setDeskripsi(''); setLinkMateri('');
     } catch (error) {
       console.error('Error:', error);
@@ -219,7 +200,6 @@ export const KelolaMateri = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* FORM TAMBAH MATERI (KIRI) */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
           <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
             <Plus size={20} className="text-blue-500" /> Tambah Materi
@@ -258,7 +238,6 @@ export const KelolaMateri = () => {
           </form>
         </div>
 
-        {/* DAFTAR MATERI (KANAN) */}
         <div className="lg:col-span-2 space-y-4">
           {daftarMateri.length === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
@@ -284,7 +263,147 @@ export const KelolaMateri = () => {
     </div>
   );
 };
-export const KelolaAlur = () => <HalamanKosong icon={Route} judul="Kelola Alur Pembelajaran" deskripsi="Sistem Roadmap untuk merancang urutan belajar siswa secara bertahap." />;
+
+// ==========================================
+// 3. FITUR KELOLA ALUR PEMBELAJARAN (BARU)
+// ==========================================
+export const KelolaAlur = () => {
+  const [daftarKelas, setDaftarKelas] = useState([]);
+  const [kelasId, setKelasId] = useState('');
+  const [alurPembelajaran, setAlurPembelajaran] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const [judulTahap, setJudulTahap] = useState('');
+  const [tipeTahap, setTipeTahap] = useState('Materi Bacaan');
+
+  // Ambil daftar kelas untuk Dropdown
+  useEffect(() => {
+    const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubKelas();
+  }, []);
+
+  // Ambil Alur berdasarkan kelas yang dipilih
+  useEffect(() => {
+    if (!kelasId) {
+      setAlurPembelajaran([]);
+      return;
+    }
+    const q = query(collection(db, 'alur'), where('kelasId', '==', kelasId), orderBy('urutan', 'asc'));
+    const unsubAlur = onSnapshot(q, (snapshot) => {
+      setAlurPembelajaran(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubAlur();
+  }, [kelasId]);
+
+  const handleTambahTahap = async (e) => {
+    e.preventDefault();
+    if (!kelasId || !judulTahap) return alert('Pilih kelas dan isi judul tahap terlebih dahulu!');
+    setLoading(true);
+
+    try {
+      await addDoc(collection(db, 'alur'), {
+        kelasId: kelasId,
+        judul: judulTahap,
+        tipe: tipeTahap,
+        urutan: alurPembelajaran.length + 1, // Mengatur urutan secara otomatis (Tahap 1, 2, dst)
+        createdAt: serverTimestamp()
+      });
+      setJudulTahap('');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Gagal menyimpan tahapan alur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Alur Pembelajaran</h1>
+        <p className="text-slate-500 dark:text-slate-400">Rancang urutan belajar (Roadmap) langkah demi langkah untuk siswa.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Form Tambah Tahapan */}
+        <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
+          <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <Plus size={20} className="text-blue-500" /> Tambah Tahapan
+          </h3>
+          <form onSubmit={handleTambahTahap} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
+              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="">-- Pilih Mata Pelajaran --</option>
+                {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
+              </select>
+            </div>
+            
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Tahapan</label>
+              <input type="text" value={judulTahap} onChange={(e) => setJudulTahap(e.target.value)} placeholder="Cth: Baca Bab 1: Sejarah Robotika" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe Aktivitas</label>
+              <select value={tipeTahap} onChange={(e) => setTipeTahap(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="Materi Bacaan">📖 Materi Bacaan (Modul/PDF)</option>
+                <option value="Visualisasi 3D">🧊 Visualisasi 3D Interaktif</option>
+                <option value="Kuis Evaluasi">📝 Kuis Evaluasi</option>
+              </select>
+            </div>
+
+            <button type="submit" disabled={loading || !kelasId} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? "Menyimpan..." : "Tambahkan ke Roadmap"}
+            </button>
+          </form>
+        </div>
+
+        {/* Visualisasi Roadmap */}
+        <div className="lg:col-span-2">
+          <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 min-h-[400px]">
+            <h3 className="mb-6 text-lg font-bold text-slate-800 dark:text-white border-b border-slate-100 dark:border-slate-700 pb-4">
+              Peta Jalan Pembelajaran
+            </h3>
+            
+            {!kelasId ? (
+              <div className="flex h-40 flex-col items-center justify-center text-slate-400">
+                <Route size={48} className="mb-3 opacity-20" />
+                <p>Pilih kelas terlebih dahulu untuk melihat alur.</p>
+              </div>
+            ) : alurPembelajaran.length === 0 ? (
+              <div className="flex h-40 flex-col items-center justify-center text-slate-400">
+                <p>Belum ada tahapan di kelas ini. Silakan buat di sebelah kiri.</p>
+              </div>
+            ) : (
+              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent dark:before:via-slate-700">
+                {alurPembelajaran.map((tahap) => (
+                  <div key={tahap.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-blue-500 text-white font-bold shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm dark:border-slate-800 z-10">
+                      {tahap.urutan}
+                    </div>
+                    <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-xl border border-slate-200 bg-slate-50 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 hover:border-blue-400 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">{tahap.tipe}</span>
+                      </div>
+                      <h4 className="text-md font-bold text-slate-800 dark:text-white">{tahap.judul}</h4>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// PLACEHOLDER SISANYA
+// ==========================================
 export const TugasUjian = () => <HalamanKosong icon={FileEdit} judul="Tugas & Ujian" deskripsi="Fitur pembuatan soal pilihan ganda, esai, dan tugas praktik." />;
 export const ManajemenSiswa = () => <HalamanKosong icon={Users} judul="Manajemen Siswa" deskripsi="Tabel daftar peserta kelas, kehadiran, dan status aktivitas siswa." />;
 export const AnalisisGuru = () => <HalamanKosong icon={BarChart2} judul="Analisis Pembelajaran" deskripsi="Grafik perkembangan nilai dan capaian kompetensi seluruh kelas." />;
