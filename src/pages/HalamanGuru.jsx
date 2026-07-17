@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical } from 'lucide-react';
 
 // --- IMPORT FIREBASE ---
-import { db } from '../lib/firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where } from 'firebase/firestore'; 
+import { db, auth } from '../lib/firebase';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where, updateDoc, doc } from 'firebase/firestore'; 
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
 const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
@@ -95,7 +95,7 @@ export const KelolaKelas = () => {
               />
             </div>
             <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
-              {loading ? "Menyimpan ke Server..." : "Generate Kode Kelas"}
+              {loading ? "Menyimpan..." : "Generate Kode Kelas"}
             </button>
           </form>
         </div>
@@ -397,20 +397,18 @@ export const KelolaAlur = () => {
 };
 
 // ==========================================
-// 4. FITUR TUGAS & UJIAN (BARU)
+// 4. FITUR TUGAS & UJIAN
 // ==========================================
 export const TugasUjian = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [daftarTugas, setDaftarTugas] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Form State
   const [kelasId, setKelasId] = useState('');
   const [judulTugas, setJudulTugas] = useState('');
   const [tipeTugas, setTipeTugas] = useState('Pilihan Ganda');
   const [batasWaktu, setBatasWaktu] = useState('');
 
-  // Mengambil data Kelas dan Tugas
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -455,7 +453,6 @@ export const TugasUjian = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Form Tambah Tugas */}
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
           <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white">Buat Ujian Baru</h3>
           <form onSubmit={handleBuatTugas} className="space-y-4">
@@ -488,7 +485,6 @@ export const TugasUjian = () => {
           </form>
         </div>
 
-        {/* Daftar Tugas */}
         <div className="lg:col-span-2 space-y-4">
           {daftarTugas.length === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
@@ -520,8 +516,151 @@ export const TugasUjian = () => {
 };
 
 // ==========================================
-// PLACEHOLDER SISANYA
+// 5. FITUR MANAJEMEN SISWA (PENILAIAN)
 // ==========================================
-export const ManajemenSiswa = () => <HalamanKosong icon={Users} judul="Manajemen Siswa" deskripsi="Tabel daftar peserta kelas, kehadiran, dan status aktivitas siswa." />;
-export const AnalisisGuru = () => <HalamanKosong icon={BarChart2} judul="Analisis Pembelajaran" deskripsi="Grafik perkembangan nilai dan capaian kompetensi seluruh kelas." />;
-export const ProfilGuru = () => <HalamanKosong icon={User} judul="Profil Pengajar" deskripsi="Kelola informasi akun dan preferensi pengajar Anda." />;
+export const ManajemenSiswa = () => {
+  const [daftarJawaban, setDaftarJawaban] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'jawaban_siswa'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setDaftarJawaban(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const handleSimpanNilai = async (jawabanId, nilaiBaru) => {
+    if (nilaiBaru === '' || nilaiBaru < 0 || nilaiBaru > 100) return alert("Masukkan nilai antara 0 - 100");
+    try {
+      await updateDoc(doc(db, 'jawaban_siswa', jawabanId), {
+        nilai: Number(nilaiBaru)
+      });
+      alert("Nilai berhasil disimpan!");
+    } catch (error) {
+      console.error(error);
+      alert("Gagal menyimpan nilai.");
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Manajemen Siswa & Penilaian</h1>
+        <p className="text-slate-500 dark:text-slate-400">Tinjau pekerjaan siswa dan berikan penilaian evaluasi secara langsung.</p>
+      </div>
+
+      <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 overflow-x-auto">
+        {loading ? (
+          <p className="text-slate-500">Memuat data pekerjaan siswa...</p>
+        ) : daftarJawaban.length === 0 ? (
+          <div className="text-center py-12 text-slate-500">Belum ada siswa yang mengumpulkan tugas.</div>
+        ) : (
+          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+            <thead className="border-b border-slate-200 text-slate-800 dark:border-slate-700 dark:text-white">
+              <tr>
+                <th className="pb-4 font-bold">Nama Siswa</th>
+                <th className="pb-4 font-bold">Tugas Dikerjakan</th>
+                <th className="pb-4 font-bold">Jawaban/Karya</th>
+                <th className="pb-4 font-bold">Nilai (0-100)</th>
+                <th className="pb-4 font-bold">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {daftarJawaban.map((item) => (
+                <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50">
+                  <td className="py-4 font-bold text-slate-700 dark:text-slate-300 capitalize">{item.namaSiswa}</td>
+                  <td className="py-4">{item.judulTugas}</td>
+                  <td className="py-4 max-w-[200px] truncate pr-4" title={item.jawaban}>{item.jawaban}</td>
+                  <td className="py-4">
+                    <input 
+                      type="number" 
+                      defaultValue={item.nilai || ''}
+                      id={`nilai-${item.id}`}
+                      className="w-20 rounded-lg border border-slate-200 bg-slate-50 p-2 text-center text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50"
+                      placeholder="-"
+                    />
+                  </td>
+                  <td className="py-4">
+                    <button 
+                      onClick={() => handleSimpanNilai(item.id, document.getElementById(`nilai-${item.id}`).value)}
+                      className="rounded-lg bg-green-500 px-4 py-2 text-xs font-bold text-white hover:bg-green-600"
+                    >
+                      Simpan
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 6. FITUR ANALISIS BELAJAR
+// ==========================================
+export const AnalisisGuru = () => {
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Analisis Pembelajaran</h1>
+        <p className="text-slate-500 dark:text-slate-400">Pantau performa kelas melalui representasi data.</p>
+      </div>
+
+      <div className="flex h-[50vh] flex-col items-center justify-center rounded-2xl bg-white border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+        <BarChart2 size={64} className="mb-4 text-blue-300 dark:text-blue-900" />
+        <h3 className="text-xl font-bold text-slate-700 dark:text-white mb-2">Integrasi Analisis AI</h3>
+        <p className="text-slate-500 dark:text-slate-400 max-w-md text-center">
+          Fitur ini akan segera tersedia. Sistem sedang mengumpulkan data yang cukup dari interaksi siswa untuk menampilkan grafik kompetensi.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 7. FITUR PROFIL GURU
+// ==========================================
+export const ProfilGuru = () => {
+  const user = auth.currentUser;
+  
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Profil Pengajar</h1>
+        <p className="text-slate-500 dark:text-slate-400">Informasi akun Anda di VectaLearning.</p>
+      </div>
+
+      <div className="max-w-2xl rounded-2xl bg-white p-8 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+        <div className="flex items-center gap-6 mb-8 border-b border-slate-100 pb-8 dark:border-slate-700">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-600 text-4xl font-black text-white uppercase shadow-lg">
+            {user?.email?.charAt(0) || 'G'}
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white capitalize">
+              {user?.displayName || user?.email?.split('@')[0] || "Pengajar Vecta"}
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400">Akun Pengajar Utama</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-500">Email Akun</label>
+            <p className="text-lg font-medium text-slate-800 dark:text-white">{user?.email}</p>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-slate-500">ID Pengguna (UID Firebase)</label>
+            <p className="font-mono text-sm text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700">
+              {user?.uid}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
