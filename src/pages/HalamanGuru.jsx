@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical } from 'lucide-react';
+import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical, UploadCloud } from 'lucide-react';
 
 // --- IMPORT FIREBASE ---
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where, updateDoc, doc } from 'firebase/firestore'; 
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // TAMBAHAN UNTUK UPLOAD
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
 const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
@@ -139,7 +140,7 @@ export const KelolaKelas = () => {
 };
 
 // ==========================================
-// 2. FITUR KELOLA MATERI
+// 2. FITUR KELOLA MATERI (DENGAN DRAG & DROP 3D)
 // ==========================================
 export const KelolaMateri = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -148,9 +149,13 @@ export const KelolaMateri = () => {
 
   const [kelasId, setKelasId] = useState('');
   const [judul, setJudul] = useState('');
-  const [deskripsi, setDeskripsi] = useState('');
   const [tipe, setTipe] = useState('Modul Teks/PDF');
+  
+  // State untuk Link Teks atau File Fisik
   const [linkMateri, setLinkMateri] = useState('');
+  const [fileMateri, setFileMateri] = useState(null); 
+
+  const storage = getStorage(db.app);
 
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -167,25 +172,41 @@ export const KelolaMateri = () => {
   const handleSimpanMateri = async (e) => {
     e.preventDefault();
     if (!kelasId || !judul) return alert('Pilih kelas dan isi judul materi terlebih dahulu!');
+    
+    // Validasi Jika Tipe 3D tapi tidak ada file
+    if (tipe === 'Model 3D (.glb)' && !fileMateri) {
+      return alert('Pilih atau seret file 3D (.glb) Anda terlebih dahulu!');
+    }
+
     setLoading(true);
 
     try {
       const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
+      let urlMateriFinal = linkMateri; // Default ke link jika bukan 3D
+
+      // JIKA TIPENYA 3D, UPLOAD FILE KE FIREBASE STORAGE
+      if (tipe === 'Model 3D (.glb)' && fileMateri) {
+        const fileRef = ref(storage, `materi_3d/${Date.now()}_${fileMateri.name}`);
+        await uploadBytes(fileRef, fileMateri); // Proses Upload
+        urlMateriFinal = await getDownloadURL(fileRef); // Dapatkan Link Hasil Upload
+      }
       
+      // Simpan Data ke Firestore
       await addDoc(collection(db, 'materi'), {
         kelasId: kelasId,
         namaKelas: kelasTerpilih.nama,
         judul: judul,
-        deskripsi: deskripsi,
         tipe: tipe,
-        link: linkMateri,
+        link: urlMateriFinal, // Link dari input atau hasil upload
         createdAt: serverTimestamp()
       });
 
-      setJudul(''); setDeskripsi(''); setLinkMateri('');
+      // Reset Form
+      setJudul(''); setLinkMateri(''); setFileMateri(null);
+      alert('Materi berhasil dipublikasikan!');
     } catch (error) {
       console.error('Error:', error);
-      alert('Gagal menyimpan materi');
+      alert('Gagal menyimpan materi. Pastikan aturan Storage Firebase sudah disetting.');
     } finally {
       setLoading(false);
     }
@@ -226,13 +247,32 @@ export const KelolaMateri = () => {
               </select>
             </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tautan / Link (Opsional)</label>
-              <input type="text" value={linkMateri} onChange={(e) => setLinkMateri(e.target.value)} placeholder="Masukkan link GDrive / YouTube" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
-            </div>
+            {/* LOGIKA CONDITIONAL RENDERING FORM (Jika 3D = File Upload, Jika Tidak = Text Input) */}
+            {tipe === 'Model 3D (.glb)' ? (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Upload File .GLB</label>
+                <div className="relative flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 dark:bg-slate-900/50 dark:border-slate-700 hover:bg-blue-100 transition cursor-pointer overflow-hidden group">
+                  <input 
+                    type="file" 
+                    accept=".glb"
+                    onChange={(e) => setFileMateri(e.target.files[0])}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <UploadCloud className="text-blue-500 mb-2 group-hover:scale-110 transition-transform" />
+                  <p className="text-sm font-bold text-blue-600 dark:text-blue-400 px-4 text-center">
+                    {fileMateri ? fileMateri.name : "Seret & Lepas file .glb di sini"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tautan / Link (Opsional)</label>
+                <input type="text" value={linkMateri} onChange={(e) => setLinkMateri(e.target.value)} placeholder="Masukkan link GDrive / YouTube" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+              </div>
+            )}
 
-            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
-              {loading ? "Menyimpan..." : "Publikasikan Materi"}
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-4">
+              {loading ? "Mengunggah & Menyimpan..." : "Publikasikan Materi"}
             </button>
           </form>
         </div>
@@ -403,13 +443,13 @@ export const TugasUjian = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [daftarTugas, setDaftarTugas] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false); // State untuk loading AI
+  const [isGenerating, setIsGenerating] = useState(false); 
 
   const [kelasId, setKelasId] = useState('');
   const [judulTugas, setJudulTugas] = useState('');
   const [tipeTugas, setTipeTugas] = useState('Pilihan Ganda');
   const [batasWaktu, setBatasWaktu] = useState('');
-  const [isiSoal, setIsiSoal] = useState(''); // State untuk teks soal
+  const [isiSoal, setIsiSoal] = useState(''); 
 
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -423,7 +463,6 @@ export const TugasUjian = () => {
     return () => { unsubKelas(); unsubTugas(); };
   }, []);
 
-  // FUNGSI MEMANGGIL GROQ AI
   const handleGenerateAI = async () => {
     if (!judulTugas || !kelasId) {
       return alert("Pilih kelas dan isi 'Judul Evaluasi' terlebih dahulu agar AI tahu topik yang harus dibuat!");
@@ -432,11 +471,9 @@ export const TugasUjian = () => {
     setIsGenerating(true);
     const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
     
-    // Konteks prompt
     const prompt = `Sebagai seorang guru, buatkan soal ujian berjenis ${tipeTugas} untuk mata pelajaran ${kelasTerpilih.nama} dengan topik: ${judulTugas}. Buatkan 3 soal saja. Jika pilihan ganda, sertakan opsi A-D. Jangan berikan kunci jawaban langsung.`;
 
-    // 👇 GANTI DENGAN API KEY GROQ ANDA DI SINI 👇
-    const GROQ_API_KEY = "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"; 
+    const GROQ_API_KEY = "API_KEY_GROQ_ANDA_DISINI"; 
     const endpoint = "https://api.groq.com/openai/v1/chat/completions";
 
     try {
@@ -447,13 +484,8 @@ export const TugasUjian = () => {
           'Authorization': `Bearer ${GROQ_API_KEY}`
         },
         body: JSON.stringify({
-          model: "llama3-8b-8192", // Anda bisa mengubahnya ke mixtral-8x7b-32768 jika mau
-          messages: [
-            {
-              role: "user",
-              content: prompt
-            }
-          ]
+          model: "llama3-8b-8192", 
+          messages: [{ role: "user", content: prompt }]
         })
       });
 
@@ -462,7 +494,6 @@ export const TugasUjian = () => {
       const data = await response.json();
       const hasilAI = data.choices[0].message.content;
       
-      // Masukkan hasil ke textarea
       setIsiSoal(hasilAI);
     } catch (error) {
       console.error(error);
@@ -484,7 +515,7 @@ export const TugasUjian = () => {
         namaKelas: kelasTerpilih.nama,
         judul: judulTugas,
         tipe: tipeTugas,
-        soal: isiSoal, // Menyimpan soal hasil AI ke database
+        soal: isiSoal, 
         deadline: batasWaktu,
         status: 'Aktif',
         createdAt: serverTimestamp()
@@ -528,7 +559,6 @@ export const TugasUjian = () => {
               </select>
             </div>
             
-            {/* TAMBAHAN TEXTAREA SOAL & TOMBOL AI GROQ */}
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Daftar Soal</label>
               <textarea 
