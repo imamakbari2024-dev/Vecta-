@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, AlertCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { BookOpen, AlertCircle, ExternalLink } from 'lucide-react';
 
 // IMPORT FIREBASE
 import { db, auth } from '../lib/firebase';
@@ -8,90 +7,71 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function AksesMateri() {
   const [kelasDiikuti, setKelasDiikuti] = useState([]);
+  const [materiKelas, setMateriKelas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
+  // 1. Ambil kelas yang diikuti siswa
   useEffect(() => {
-    // Pastikan siswa sudah login sebelum menarik data
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
-        // MENGAMBIL KELAS YANG DIIKUTI SISWA SAJA
-        // Logikanya: Cari di koleksi 'kelas', di mana array 'siswa' berisi ID user saat ini
-        const q = query(
-          collection(db, 'kelas'),
-          where('siswa', 'array-contains', user.uid)
-        );
-
-        const unsubscribeData = onSnapshot(q, (snapshot) => {
-          const dataKelas = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setKelasDiikuti(dataKelas);
+        const q = query(collection(db, 'kelas'), where('siswa', 'array-contains', user.uid));
+        onSnapshot(q, (snapshot) => {
+          setKelasDiikuti(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
           setLoading(false);
         });
-
-        return () => unsubscribeData();
-      } else {
-        setLoading(false);
       }
     });
-
     return () => unsubscribeAuth();
   }, []);
 
-  if (loading) {
-    return <div className="flex h-64 items-center justify-center text-slate-500">Memuat Pustaka Materi...</div>;
-  }
+  // 2. Ambil semua materi untuk kelas yang diikuti
+  useEffect(() => {
+    if (kelasDiikuti.length === 0) return;
+    
+    const kelasIds = kelasDiikuti.map(k => k.id);
+    const qMateri = query(collection(db, 'materi'), where('kelasId', 'in', kelasIds));
+    
+    onSnapshot(qMateri, (snapshot) => {
+      setMateriKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+  }, [kelasDiikuti]);
+
+  if (loading) return <div className="p-8 text-slate-500">Memuat Pustaka Materi...</div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pustaka Materi</h1>
-        <p className="text-slate-500 dark:text-slate-400">Pilih mata pelajaran untuk mulai membaca modul dan literatur.</p>
+        <p className="text-slate-500 dark:text-slate-400">Pilih materi dari kelas yang Anda ikuti.</p>
       </div>
 
-      {kelasDiikuti.length === 0 ? (
-        // Tampilan jika siswa belum bergabung ke kelas mana pun
+      {materiKelas.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-800">
-          <AlertCircle size={48} className="mb-4 text-slate-400 dark:text-slate-500" />
-          <h3 className="mb-2 text-xl font-bold text-slate-700 dark:text-white">Belum Ada Kelas</h3>
-          <p className="max-w-md text-slate-500 dark:text-slate-400">
-            Anda belum bergabung dengan kelas mana pun. Silakan kembali ke menu <span className="font-bold">Dashboard</span> dan masukkan Kode Kelas yang diberikan oleh Guru Anda.
-          </p>
+          <AlertCircle size={48} className="mb-4 text-slate-400" />
+          <h3 className="text-xl font-bold text-slate-700 dark:text-white">Belum Ada Materi</h3>
+          <p className="text-slate-500">Guru Anda belum mengunggah materi untuk kelas ini.</p>
         </div>
       ) : (
-        // Tampilan daftar kelas yang diikuti (Mirip desain asli Anda)
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {kelasDiikuti.map((kelas) => (
-            <div key={kelas.id} className="flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 transition-all hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800">
+          {materiKelas.map((materi) => (
+            <div key={materi.id} className="flex flex-col justify-between rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
               <div>
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
                   <BookOpen size={24} />
                 </div>
-                <h3 className="mb-2 text-lg font-bold text-slate-800 dark:text-white">{kelas.nama}</h3>
-                <p className="mb-6 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                  {/* Ini sementara kita buat statis, nanti bisa dihubungkan ke jumlah materi asli */}
-                  <span>Modul Pembelajaran</span>
-                </p>
+                <h3 className="mb-1 text-lg font-bold text-slate-800 dark:text-white">{materi.judul}</h3>
+                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-2">{materi.namaKelas}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{materi.tipe}</p>
               </div>
 
-              <div>
-                <div className="mb-4 flex items-center justify-between text-sm font-semibold">
-                  <span className="text-slate-600 dark:text-slate-300">Progres</span>
-                  <span className="text-blue-600 dark:text-blue-400">0%</span>
-                </div>
-                <div className="mb-6 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700">
-                  <div className="h-2 rounded-full bg-blue-600" style={{ width: '0%' }}></div>
-                </div>
-
-                <button 
-                  onClick={() => alert(`Sistem akan membuka modul untuk kelas: ${kelas.nama}`)}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-50 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-700"
-                >
-                  Buka Modul &gt;
-                </button>
-              </div>
+              <a 
+                href={materi.link} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+              >
+                Buka Materi <ExternalLink size={16} />
+              </a>
             </div>
           ))}
         </div>
