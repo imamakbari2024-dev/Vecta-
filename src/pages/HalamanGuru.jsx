@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical } from 'lucide-react';
+import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical, UploadCloud, Trash2 } from 'lucide-react';
 
-// --- IMPORT FIREBASE (TANPA STORAGE BERBAYAR) ---
+// --- IMPORT FIREBASE ---
 import { db, auth } from '../lib/firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where, updateDoc, doc } from 'firebase/firestore'; 
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, where, updateDoc, doc, deleteDoc } from 'firebase/firestore'; 
 
 // --- Komponen Placeholder untuk menu yang belum dibangun ---
 const HalamanKosong = ({ icon: Icon, judul, deskripsi }) => (
@@ -139,36 +139,48 @@ export const KelolaKelas = () => {
 };
 
 // ==========================================
-// 2. FITUR KELOLA MATERI (100% GRATIS TANPA FIREBASE STORAGE)
+// 2. FITUR KELOLA MATERI (CLOUDINARY & HAPUS MATERI)
 // ==========================================
-// Ganti bagian KelolaMateri di HalamanGuru.jsx dengan ini:
 export const KelolaMateri = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [daftarMateri, setDaftarMateri] = useState([]);
   const [loading, setLoading] = useState(false);
+  
   const [kelasId, setKelasId] = useState('');
   const [judul, setJudul] = useState('');
   const [tipe, setTipe] = useState('Modul Teks/PDF');
   const [linkMateri, setLinkMateri] = useState('');
 
-  // Konfigurasi Cloudinary
-  const CLOUD_NAME = "pnnyexrs"; // Ganti dengan Cloud Name Anda
-  const UPLOAD_PRESET = "vecta_upload";   // Ganti dengan Upload Preset Anda
+  const CLOUD_NAME = "pnnyexrs"; 
+  const UPLOAD_PRESET = "vecta_upload";   
 
   useEffect(() => {
-    // (Kode fetch kelas & materi tetap sama seperti sebelumnya)
+    const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubMateri = onSnapshot(query(collection(db, 'materi'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setDaftarMateri(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsubKelas(); unsubMateri(); };
   }, []);
 
-  // Fungsi Upload ke Cloudinary
   const uploadKeCloudinary = () => {
+    if (!window.cloudinary) {
+      return alert("Gagal memuat sistem upload. Pastikan script Cloudinary sudah ditambahkan di index.html");
+    }
+
     const widget = window.cloudinary.createUploadWidget({
       cloudName: CLOUD_NAME,
       uploadPreset: UPLOAD_PRESET,
-      resourceType: "raw" // Penting untuk file .glb
+      sources: ['local', 'url'], 
+      resourceType: "raw", 
+      multiple: false
     }, (error, result) => {
       if (!error && result && result.event === "success") {
         setLinkMateri(result.info.secure_url);
-        alert("File berhasil diunggah!");
+        alert("File 3D berhasil diunggah ke Cloudinary!");
       }
     });
     widget.open();
@@ -176,7 +188,7 @@ export const KelolaMateri = () => {
 
   const handleSimpanMateri = async (e) => {
     e.preventDefault();
-    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data!');
+    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data dan pastikan file/tautan sudah diisi!');
     setLoading(true);
 
     try {
@@ -198,13 +210,118 @@ export const KelolaMateri = () => {
     }
   };
 
+  // --- FUNGSI BARU: HAPUS MATERI ---
+  const handleHapusMateri = async (id) => {
+    const konfirmasi = window.confirm("Apakah Anda yakin ingin menghapus materi ini?");
+    if (!konfirmasi) return;
+
+    try {
+      await deleteDoc(doc(db, 'materi', id));
+      alert("Materi berhasil dihapus.");
+    } catch (error) {
+      console.error(error);
+      alert("Gagal menghapus materi.");
+    }
+  };
+
   return (
-    // ... (UI Form tetap sama, tapi tambahkan tombol ini jika Tipe = 3D)
-    {tipe === 'Model 3D (.glb)' && (
-      <button type="button" onClick={uploadKeCloudinary} className="w-full bg-blue-500 text-white p-2 rounded-xl font-bold">
-        {linkMateri ? "File Terunggah ✅" : "Pilih File .glb (Cloudinary)"}
-      </button>
-    )}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pustaka Materi</h1>
+        <p className="text-slate-500 dark:text-slate-400">Unggah dan kelola modul, video, atau objek 3D (.glb) untuk siswa.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
+          <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <Plus size={20} className="text-blue-500" /> Tambah Materi
+          </h3>
+          <form onSubmit={handleSimpanMateri} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
+              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="">-- Pilih Mata Pelajaran --</option>
+                {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
+              </select>
+            </div>
+            
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Materi</label>
+              <input type="text" value={judul} onChange={(e) => setJudul(e.target.value)} placeholder="Cth: Bab 1 - Pengenalan PLC" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe Materi</label>
+              <select value={tipe} onChange={(e) => setTipe(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="Modul Teks/PDF">Modul Teks/PDF</option>
+                <option value="Video Pembelajaran">Video Pembelajaran</option>
+                <option value="Model 3D (.glb)">Model 3D Interaktif</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+                {tipe === 'Model 3D (.glb)' ? 'Upload File 3D (.glb)' : 'Tautan / Link'}
+              </label>
+              
+              {tipe === 'Model 3D (.glb)' ? (
+                <button 
+                  type="button" 
+                  onClick={uploadKeCloudinary} 
+                  className={`w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl transition-colors ${linkMateri ? 'border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-blue-400'}`}
+                >
+                  <UploadCloud size={32} className="mb-2" />
+                  <span className="font-bold text-sm">{linkMateri ? "File 3D Siap Dipublikasikan ✅" : "Klik untuk Upload File .glb"}</span>
+                </button>
+              ) : (
+                <input 
+                  type="text" 
+                  value={linkMateri} 
+                  onChange={(e) => setLinkMateri(e.target.value)} 
+                  placeholder="Masukkan link GDrive / YouTube" 
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" 
+                />
+              )}
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-4">
+              {loading ? "Menyimpan..." : "Publikasikan Materi"}
+            </button>
+          </form>
+        </div>
+
+        <div className="lg:col-span-2 space-y-4">
+          {daftarMateri.length === 0 ? (
+            <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada materi yang diunggah.</p>
+            </div>
+          ) : (
+            daftarMateri.map((materi) => (
+              <div key={materi.id} className="flex items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 group">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+                    <BookOpen size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 dark:text-white">{materi.judul}</h4>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{materi.namaKelas} • {materi.tipe}</p>
+                  </div>
+                </div>
+
+                {/* --- TOMBOL HAPUS MATERI --- */}
+                <button 
+                  onClick={() => handleHapusMateri(materi.id)}
+                  className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 transition-colors"
+                  title="Hapus Materi"
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
