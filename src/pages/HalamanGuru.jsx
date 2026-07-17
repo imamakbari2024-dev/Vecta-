@@ -139,7 +139,7 @@ export const KelolaKelas = () => {
 };
 
 // ==========================================
-// 2. FITUR KELOLA MATERI (CLOUDINARY & HAPUS MATERI)
+// 2. FITUR KELOLA MATERI (KHUSUS DOKUMEN/VIDEO)
 // ==========================================
 export const KelolaMateri = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -151,44 +151,23 @@ export const KelolaMateri = () => {
   const [tipe, setTipe] = useState('Modul Teks/PDF');
   const [linkMateri, setLinkMateri] = useState('');
 
-  const CLOUD_NAME = "pnnyexrs"; 
-  const UPLOAD_PRESET = "vecta_upload";   
-
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
       setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
     const unsubMateri = onSnapshot(query(collection(db, 'materi'), orderBy('createdAt', 'desc')), (snapshot) => {
-      setDaftarMateri(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const allMateri = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter: HANYA TAMPILKAN MATERI BIASA (Bukan 3D)
+      setDaftarMateri(allMateri.filter(m => m.tipe !== 'Model 3D (.glb)'));
     });
 
     return () => { unsubKelas(); unsubMateri(); };
   }, []);
 
-  const uploadKeCloudinary = () => {
-    if (!window.cloudinary) {
-      return alert("Gagal memuat sistem upload. Pastikan script Cloudinary sudah ditambahkan di index.html");
-    }
-
-    const widget = window.cloudinary.createUploadWidget({
-      cloudName: CLOUD_NAME,
-      uploadPreset: UPLOAD_PRESET,
-      sources: ['local', 'url'], 
-      resourceType: "raw", 
-      multiple: false
-    }, (error, result) => {
-      if (!error && result && result.event === "success") {
-        setLinkMateri(result.info.secure_url);
-        alert("File 3D berhasil diunggah ke Cloudinary!");
-      }
-    });
-    widget.open();
-  };
-
   const handleSimpanMateri = async (e) => {
     e.preventDefault();
-    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data dan pastikan file/tautan sudah diisi!');
+    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data!');
     setLoading(true);
 
     try {
@@ -210,25 +189,17 @@ export const KelolaMateri = () => {
     }
   };
 
-  // --- FUNGSI BARU: HAPUS MATERI ---
   const handleHapusMateri = async (id) => {
-    const konfirmasi = window.confirm("Apakah Anda yakin ingin menghapus materi ini?");
-    if (!konfirmasi) return;
-
-    try {
-      await deleteDoc(doc(db, 'materi', id));
-      alert("Materi berhasil dihapus.");
-    } catch (error) {
-      console.error(error);
-      alert("Gagal menghapus materi.");
-    }
+    if (!window.confirm("Yakin ingin menghapus materi ini?")) return;
+    try { await deleteDoc(doc(db, 'materi', id)); } 
+    catch (error) { alert("Gagal menghapus materi."); }
   };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pustaka Materi</h1>
-        <p className="text-slate-500 dark:text-slate-400">Unggah dan kelola modul, video, atau objek 3D (.glb) untuk siswa.</p>
+        <p className="text-slate-500 dark:text-slate-400">Unggah dan kelola dokumen, modul, atau tautan video untuk siswa.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -239,51 +210,26 @@ export const KelolaMateri = () => {
           <form onSubmit={handleSimpanMateri} className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
-              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
                 <option value="">-- Pilih Mata Pelajaran --</option>
                 {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
               </select>
             </div>
-            
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Materi</label>
-              <input type="text" value={judul} onChange={(e) => setJudul(e.target.value)} placeholder="Cth: Bab 1 - Pengenalan PLC" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+              <input type="text" value={judul} onChange={(e) => setJudul(e.target.value)} placeholder="Cth: Bab 1 - Pengenalan PLC" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
             </div>
-
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe Materi</label>
-              <select value={tipe} onChange={(e) => setTipe(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+              <select value={tipe} onChange={(e) => setTipe(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
                 <option value="Modul Teks/PDF">Modul Teks/PDF</option>
                 <option value="Video Pembelajaran">Video Pembelajaran</option>
-                <option value="Model 3D (.glb)">Model 3D Interaktif</option>
               </select>
             </div>
-
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-                {tipe === 'Model 3D (.glb)' ? 'Upload File 3D (.glb)' : 'Tautan / Link'}
-              </label>
-              
-              {tipe === 'Model 3D (.glb)' ? (
-                <button 
-                  type="button" 
-                  onClick={uploadKeCloudinary} 
-                  className={`w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl transition-colors ${linkMateri ? 'border-green-500 bg-green-50 text-green-700 dark:bg-green-900/30' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-blue-400'}`}
-                >
-                  <UploadCloud size={32} className="mb-2" />
-                  <span className="font-bold text-sm">{linkMateri ? "File 3D Siap Dipublikasikan ✅" : "Klik untuk Upload File .glb"}</span>
-                </button>
-              ) : (
-                <input 
-                  type="text" 
-                  value={linkMateri} 
-                  onChange={(e) => setLinkMateri(e.target.value)} 
-                  placeholder="Masukkan link GDrive / YouTube" 
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" 
-                />
-              )}
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tautan / Link</label>
+              <input type="text" value={linkMateri} onChange={(e) => setLinkMateri(e.target.value)} placeholder="Masukkan link GDrive / YouTube" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
             </div>
-
             <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-4">
               {loading ? "Menyimpan..." : "Publikasikan Materi"}
             </button>
@@ -299,23 +245,149 @@ export const KelolaMateri = () => {
             daftarMateri.map((materi) => (
               <div key={materi.id} className="flex items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 group">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-                    <BookOpen size={24} />
-                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400"><BookOpen size={24} /></div>
                   <div>
                     <h4 className="font-bold text-slate-800 dark:text-white">{materi.judul}</h4>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{materi.namaKelas} • {materi.tipe}</p>
                   </div>
                 </div>
+                <button onClick={() => handleHapusMateri(materi.id)} className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 transition-colors" title="Hapus Materi"><Trash2 size={20} /></button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-                {/* --- TOMBOL HAPUS MATERI --- */}
-                <button 
-                  onClick={() => handleHapusMateri(materi.id)}
-                  className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 transition-colors"
-                  title="Hapus Materi"
-                >
-                  <Trash2 size={20} />
-                </button>
+// ==========================================
+// 2B. FITUR KELOLA VISUALISASI 3D (BARU)
+// ==========================================
+export const KelolaVisualisasi3D = () => {
+  const [daftarKelas, setDaftarKelas] = useState([]);
+  const [daftar3D, setDaftar3D] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  const [kelasId, setKelasId] = useState('');
+  const [judul, setJudul] = useState('');
+  const [deskripsi, setDeskripsi] = useState('');
+  const [linkMateri, setLinkMateri] = useState('');
+
+  const CLOUD_NAME = "pnnyexrs"; 
+  const UPLOAD_PRESET = "vecta_upload";   
+
+  useEffect(() => {
+    const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
+      setDaftarKelas(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const unsubMateri = onSnapshot(query(collection(db, 'materi'), orderBy('createdAt', 'desc')), (snapshot) => {
+      const allMateri = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter: HANYA TAMPILKAN MATERI 3D
+      setDaftar3D(allMateri.filter(m => m.tipe === 'Model 3D (.glb)'));
+    });
+
+    return () => { unsubKelas(); unsubMateri(); };
+  }, []);
+
+  const uploadKeCloudinary = () => {
+    if (!window.cloudinary) return alert("Sistem upload sedang dimuat...");
+    window.cloudinary.createUploadWidget({
+      cloudName: CLOUD_NAME, uploadPreset: UPLOAD_PRESET, sources: ['local', 'url'], resourceType: "raw", multiple: false
+    }, (error, result) => {
+      if (!error && result && result.event === "success") {
+        setLinkMateri(result.info.secure_url);
+        alert("File 3D berhasil diunggah!");
+      }
+    }).open();
+  };
+
+  const handleSimpan3D = async (e) => {
+    e.preventDefault();
+    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi data dan upload file .glb Anda!');
+    setLoading(true);
+
+    try {
+      const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
+      await addDoc(collection(db, 'materi'), {
+        kelasId,
+        namaKelas: kelasTerpilih.nama,
+        judul,
+        deskripsi,
+        tipe: 'Model 3D (.glb)',
+        link: linkMateri,
+        createdAt: serverTimestamp()
+      });
+      setJudul(''); setDeskripsi(''); setLinkMateri('');
+      alert('Objek 3D berhasil ditambahkan!');
+    } catch (error) {
+      alert('Gagal menyimpan.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleHapus3D = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus objek 3D ini?")) return;
+    await deleteDoc(doc(db, 'materi', id));
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">Kelola Visualisasi 3D</h1>
+        <p className="text-slate-500 dark:text-slate-400">Unggah dan kelola model 3D (format .glb) untuk kelas Spatial Computing.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
+          <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><Plus size={20} className="text-indigo-500" /> Tambah Objek 3D</h3>
+          <form onSubmit={handleSimpan3D} className="space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
+              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                <option value="">-- Pilih Mata Pelajaran --</option>
+                {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Objek 3D</label>
+              <input type="text" value={judul} onChange={(e) => setJudul(e.target.value)} placeholder="Cth: Anatomi Jantung" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Deskripsi Singkat</label>
+              <input type="text" value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)} placeholder="Cth: Model organ untuk diputar..." className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Upload File 3D (.glb)</label>
+              <button type="button" onClick={uploadKeCloudinary} className={`w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl transition-colors ${linkMateri ? 'border-green-500 bg-green-50 text-green-700' : 'border-indigo-300 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-indigo-400'}`}>
+                <UploadCloud size={32} className="mb-2" />
+                <span className="font-bold text-sm">{linkMateri ? "File 3D Siap Disimpan ✅" : "Klik untuk Upload File .glb"}</span>
+              </button>
+            </div>
+            <button type="submit" disabled={loading} className="w-full rounded-xl bg-indigo-600 p-3 font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50 mt-4">
+              {loading ? "Menyimpan..." : "Publikasikan Objek 3D"}
+            </button>
+          </form>
+        </div>
+
+        <div className="lg:col-span-2 space-y-4">
+          {daftar3D.length === 0 ? (
+            <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada objek 3D yang diunggah.</p>
+            </div>
+          ) : (
+            daftar3D.map((materi) => (
+              <div key={materi.id} className="flex items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 group">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400"><Route size={24} /></div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 dark:text-white">{materi.judul}</h4>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{materi.namaKelas} • {materi.deskripsi || 'Model 3D'}</p>
+                  </div>
+                </div>
+                <button onClick={() => handleHapus3D(materi.id)} className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 transition-colors" title="Hapus 3D"><Trash2 size={20} /></button>
               </div>
             ))
           )}
