@@ -531,19 +531,30 @@ export const KelolaAlur = () => {
 };
 
 // ==========================================
-// 4. FITUR TUGAS & UJIAN (MENGGUNAKAN GROQ AI)
+// 4. FITUR TUGAS & UJIAN (MANUAL OLEH GURU)
 // ==========================================
 export const TugasUjian = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
   const [daftarTugas, setDaftarTugas] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false); 
-
+  
+  // State Form Utama
   const [kelasId, setKelasId] = useState('');
   const [judulTugas, setJudulTugas] = useState('');
-  const [tipeTugas, setTipeTugas] = useState('Pilihan Ganda');
+  const [tipeTugas, setTipeTugas] = useState('Essay');
   const [batasWaktu, setBatasWaktu] = useState('');
-  const [isiSoal, setIsiSoal] = useState(''); 
+
+  // State Khusus Essay (Upload Dokumen)
+  const [linkFileSoal, setLinkFileSoal] = useState('');
+
+  // State Khusus Pilihan Ganda (Bikin Soal Langsung)
+  const [soalPilgan, setSoalPilgan] = useState([
+    { pertanyaan: '', a: '', b: '', c: '', d: '', kunci: 'A' }
+  ]);
+
+  // Konfigurasi Cloudinary (Bisa pakai akun yang sama dengan fitur 3D)
+  const CLOUD_NAME = "pnnyexrs"; 
+  const UPLOAD_PRESET = "vecta_upload";
 
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -557,64 +568,84 @@ export const TugasUjian = () => {
     return () => { unsubKelas(); unsubTugas(); };
   }, []);
 
-  const handleGenerateAI = async () => {
-    if (!judulTugas || !kelasId) {
-      return alert("Pilih kelas dan isi 'Judul Evaluasi' terlebih dahulu agar AI tahu topik yang harus dibuat!");
-    }
-
-    setIsGenerating(true);
-    const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
-    
-    const prompt = `Sebagai seorang guru, buatkan soal ujian berjenis ${tipeTugas} untuk mata pelajaran ${kelasTerpilih.nama} dengan topik: ${judulTugas}. Buatkan 3 soal saja. Jika pilihan ganda, sertakan opsi A-D. Jangan berikan kunci jawaban langsung.`;
-
-    const GROQ_API_KEY = "API_KEY_GROQ_ANDA_DISINI"; 
-    const endpoint = "https://api.groq.com/openai/v1/chat/completions";
-
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "llama3-8b-8192", 
-          messages: [{ role: "user", content: prompt }]
-        })
-      });
-
-      if (!response.ok) throw new Error("Gagal terhubung ke Groq AI");
-
-      const data = await response.json();
-      const hasilAI = data.choices[0].message.content;
-      
-      setIsiSoal(hasilAI);
-    } catch (error) {
-      console.error(error);
-      alert("Gagal membuat soal dengan AI. Pastikan API Key Groq Anda valid.");
-    } finally {
-      setIsGenerating(false);
-    }
+  // FUNGSI UPLOAD FILE SOAL ESSAY
+  const uploadSoalDocument = () => {
+    if (!window.cloudinary) return alert("Sistem upload sedang dimuat...");
+    window.cloudinary.createUploadWidget({
+      cloudName: CLOUD_NAME, 
+      uploadPreset: UPLOAD_PRESET, 
+      sources: ['local', 'url', 'google_drive'], 
+      resourceType: "auto", // Membolehkan upload PDF, Word, dll
+      multiple: false
+    }, (error, result) => {
+      if (!error && result && result.event === "success") {
+        setLinkFileSoal(result.info.secure_url);
+        alert("Dokumen soal berhasil diunggah!");
+      }
+    }).open();
   };
 
+  // FUNGSI MENGELOLA SOAL PILIHAN GANDA
+  const handlePilganChange = (index, field, value) => {
+    const newSoal = [...soalPilgan];
+    newSoal[index][field] = value;
+    setSoalPilgan(newSoal);
+  };
+
+  const tambahSoalPilgan = () => {
+    setSoalPilgan([...soalPilgan, { pertanyaan: '', a: '', b: '', c: '', d: '', kunci: 'A' }]);
+  };
+
+  const hapusSoalPilgan = (index) => {
+    if(soalPilgan.length === 1) return alert('Minimal harus ada 1 soal!');
+    const newSoal = soalPilgan.filter((_, i) => i !== index);
+    setSoalPilgan(newSoal);
+  };
+
+  // FUNGSI SIMPAN KE FIREBASE
   const handleBuatTugas = async (e) => {
     e.preventDefault();
-    if (!kelasId || !judulTugas || !batasWaktu || !isiSoal) return alert('Lengkapi semua data termasuk daftar soal!');
+    if (!kelasId || !judulTugas || !batasWaktu) return alert('Lengkapi data wajib (Kelas, Judul, Batas Waktu)!');
+    
+    // Validasi Sesuai Tipe
+    if (tipeTugas === 'Essay' && !linkFileSoal) {
+      return alert('Silakan upload dokumen soal untuk tipe Essay!');
+    }
+    if (tipeTugas === 'Pilihan Ganda') {
+      const isPilganValid = soalPilgan.every(s => s.pertanyaan && s.a && s.b && s.c && s.d);
+      if (!isPilganValid) return alert('Lengkapi semua teks pertanyaan dan opsi A-D!');
+    }
+
     setLoading(true);
 
     try {
       const kelasTerpilih = daftarKelas.find(k => k.id === kelasId);
-      await addDoc(collection(db, 'tugas'), {
+      const payload = {
         kelasId,
         namaKelas: kelasTerpilih.nama,
         judul: judulTugas,
         tipe: tipeTugas,
-        soal: isiSoal, 
         deadline: batasWaktu,
         status: 'Aktif',
         createdAt: serverTimestamp()
-      });
-      setJudulTugas(''); setBatasWaktu(''); setIsiSoal('');
+      };
+
+      // Simpan data spesifik berdasarkan tipe
+      if (tipeTugas === 'Essay') {
+        payload.fileSoal = linkFileSoal;
+      } else {
+        payload.daftarSoal = soalPilgan;
+      }
+
+      await addDoc(collection(db, 'tugas'), payload);
+      
+      // Reset Form
+      setJudulTugas(''); 
+      setLinkFileSoal(''); 
+      setBatasWaktu('');
+      setSoalPilgan([{ pertanyaan: '', a: '', b: '', c: '', d: '', kunci: 'A' }]);
+      
+      alert('Tugas / Ujian berhasil dipublikasikan ke siswa!');
     } catch (error) {
       alert('Gagal mempublikasikan tugas.');
     } finally {
@@ -622,86 +653,134 @@ export const TugasUjian = () => {
     }
   };
 
+  const handleHapusTugas = async (id) => {
+    if (!window.confirm("Yakin ingin menghapus tugas/ujian ini?")) return;
+    await deleteDoc(doc(db, 'tugas', id));
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Kelola Tugas & Ujian</h1>
-        <p className="text-slate-500 dark:text-slate-400">Buat evaluasi pembelajaran secara manual atau menggunakan bantuan AI.</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Tugas & Ujian</h1>
+        <p className="text-slate-500 dark:text-slate-400">Buat soal secara manual dan publikasikan evaluasi untuk siswa.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 h-fit">
-          <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white">Buat Ujian Baru</h3>
-          <form onSubmit={handleBuatTugas} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
-              <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
-                <option value="">-- Pilih Kelas --</option>
-                {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Evaluasi</label>
-              <input type="text" value={judulTugas} onChange={(e) => setJudulTugas(e.target.value)} placeholder="Contoh: Hukum Newton" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe</label>
-              <select value={tipeTugas} onChange={(e) => setTipeTugas(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
-                <option value="Pilihan Ganda">Pilihan Ganda</option>
-                <option value="Esai Panjang">Esai Panjang</option>
-                <option value="Upload Proyek">Upload Proyek Praktik</option>
-              </select>
-            </div>
+        {/* FORMULIR PEMBUATAN SOAL */}
+        <div className="lg:col-span-1">
+          <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 sticky top-6">
+            <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <FileEdit size={20} className="text-blue-500" /> Buat Evaluasi
+            </h3>
             
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Daftar Soal</label>
-              <textarea 
-                value={isiSoal} 
-                onChange={(e) => setIsiSoal(e.target.value)} 
-                rows="5" 
-                placeholder="Ketik manual atau klik Generate AI di bawah..." 
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
-              ></textarea>
-              <button 
-                type="button" 
-                onClick={handleGenerateAI}
-                disabled={isGenerating || !judulTugas || !kelasId}
-                className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-3 font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-              >
-                {isGenerating ? "Groq Sedang Berpikir..." : "✨ Generate Soal (Groq AI)"}
-              </button>
-            </div>
+            <form onSubmit={handleBuatTugas} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Pilih Kelas</label>
+                <select value={kelasId} onChange={(e) => setKelasId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white">
+                  <option value="">-- Pilih Mata Pelajaran --</option>
+                  {daftarKelas.map(k => <option key={k.id} value={k.id}>{k.nama}</option>)}
+                </select>
+              </div>
+              
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Judul Evaluasi</label>
+                <input type="text" value={judulTugas} onChange={(e) => setJudulTugas(e.target.value)} placeholder="Cth: Ujian Tengah Semester" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+              </div>
+              
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Batas Waktu (Deadline)</label>
+                <input type="date" value={batasWaktu} onChange={(e) => setBatasWaktu(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+              </div>
 
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Batas Waktu (Deadline)</label>
-              <input type="date" value={batasWaktu} onChange={(e) => setBatasWaktu(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
-            </div>
-            <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-2">
-              {loading ? "Menyimpan..." : "Publikasikan"}
-            </button>
-          </form>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tipe Soal</label>
+                <select value={tipeTugas} onChange={(e) => setTipeTugas(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-blue-600 focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-blue-400">
+                  <option value="Essay">Tugas Essay (Siswa Ketik Jawaban)</option>
+                  <option value="Pilihan Ganda">Pilihan Ganda (A, B, C, D)</option>
+                </select>
+              </div>
+
+              <div className="border-t border-slate-200 dark:border-slate-700 my-4 pt-4"></div>
+
+              {/* TAMPILAN JIKA TIPE ESSAY (UPLOAD DOKUMEN) */}
+              {tipeTugas === 'Essay' && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2">
+                  <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Upload Dokumen Soal</label>
+                  <p className="text-xs text-slate-500 mb-2">Unggah file PDF/Word berisi daftar soal. Siswa akan membacanya dan mengetik jawaban di sistem.</p>
+                  <button type="button" onClick={uploadSoalDocument} className={`w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl transition-colors ${linkFileSoal ? 'border-green-500 bg-green-50 text-green-700' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-blue-400'}`}>
+                    {linkFileSoal ? <CheckCircle size={32} className="mb-2" /> : <UploadCloud size={32} className="mb-2" />}
+                    <span className="font-bold text-sm">{linkFileSoal ? "Dokumen Siap Disimpan ✅" : "Klik untuk Upload Soal (PDF/Doc)"}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* TAMPILAN JIKA TIPE PILIHAN GANDA (BUAT SOAL MANUAL) */}
+              {tipeTugas === 'Pilihan Ganda' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {soalPilgan.map((soal, index) => (
+                    <div key={index} className="p-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-900/30 dark:border-slate-700 relative">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Soal No. {index + 1}</span>
+                        <button type="button" onClick={() => hapusSoalPilgan(index)} className="text-red-500 hover:bg-red-100 p-1 rounded-md transition-colors"><Trash2 size={16}/></button>
+                      </div>
+                      
+                      <textarea value={soal.pertanyaan} onChange={(e) => handlePilganChange(index, 'pertanyaan', e.target.value)} placeholder="Ketik pertanyaan di sini..." className="w-full mb-3 rounded-lg border border-slate-300 p-2 text-sm focus:border-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-white" rows="3" />
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="flex items-center gap-2"><span className="font-bold text-xs">A</span><input type="text" value={soal.a} onChange={(e) => handlePilganChange(index, 'a', e.target.value)} className="w-full rounded border border-slate-300 p-1.5 text-xs dark:bg-slate-800 dark:border-slate-600 dark:text-white"/></div>
+                        <div className="flex items-center gap-2"><span className="font-bold text-xs">B</span><input type="text" value={soal.b} onChange={(e) => handlePilganChange(index, 'b', e.target.value)} className="w-full rounded border border-slate-300 p-1.5 text-xs dark:bg-slate-800 dark:border-slate-600 dark:text-white"/></div>
+                        <div className="flex items-center gap-2"><span className="font-bold text-xs">C</span><input type="text" value={soal.c} onChange={(e) => handlePilganChange(index, 'c', e.target.value)} className="w-full rounded border border-slate-300 p-1.5 text-xs dark:bg-slate-800 dark:border-slate-600 dark:text-white"/></div>
+                        <div className="flex items-center gap-2"><span className="font-bold text-xs">D</span><input type="text" value={soal.d} onChange={(e) => handlePilganChange(index, 'd', e.target.value)} className="w-full rounded border border-slate-300 p-1.5 text-xs dark:bg-slate-800 dark:border-slate-600 dark:text-white"/></div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-green-600 dark:text-green-400">Kunci Jawaban:</span>
+                        <select value={soal.kunci} onChange={(e) => handlePilganChange(index, 'kunci', e.target.value)} className="rounded border border-slate-300 p-1 text-xs font-bold dark:bg-slate-800 dark:border-slate-600 dark:text-white">
+                          <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                  <button type="button" onClick={tambahSoalPilgan} className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-dashed border-blue-400 text-blue-600 font-semibold text-sm hover:bg-blue-50 transition-colors dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-900/30">
+                    <Plus size={16} /> Tambah Soal Pilgan
+                  </button>
+                </div>
+              )}
+
+              <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-4 shadow-md">
+                {loading ? "Menyimpan Data..." : "Publikasikan ke Siswa"}
+              </button>
+            </form>
+          </div>
         </div>
 
+        {/* DAFTAR TUGAS YANG SUDAH DIBUAT */}
         <div className="lg:col-span-2 space-y-4">
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Daftar Evaluasi Aktif</h3>
           {daftarTugas.length === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/50">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada tugas/ujian yang dibuat.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada tugas atau ujian yang dibuat.</p>
             </div>
           ) : (
-            daftarTugas.map(tugas => (
-              <div key={tugas.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
-                <div className="flex items-center gap-4 mb-4 sm:mb-0">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-                    <FileEdit size={24} />
+            daftarTugas.map((tugas) => (
+              <div key={tugas.id} className="flex items-center justify-between rounded-2xl bg-white p-5 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 group">
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${tugas.tipe === 'Essay' ? 'bg-orange-50 text-orange-600 dark:bg-orange-900/40' : 'bg-purple-50 text-purple-600 dark:bg-purple-900/40'}`}>
+                    <FileText size={24} />
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-800 dark:text-white">{tugas.judul}</h4>
                     <p className="text-sm text-slate-500 dark:text-slate-400">{tugas.namaKelas} • {tugas.tipe}</p>
                   </div>
                 </div>
-                <div className="text-left sm:text-right w-full sm:w-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-xs font-semibold text-slate-400 uppercase mb-1">Tenggat Waktu</p>
-                  <p className="font-bold text-red-500">{tugas.deadline}</p>
+                <div className="flex items-center gap-4">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-xs text-slate-400 font-medium">Batas Waktu</p>
+                    <p className="text-sm font-bold text-red-500">{tugas.deadline}</p>
+                  </div>
+                  <button onClick={() => handleHapusTugas(tugas.id)} className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" title="Hapus Tugas">
+                    <Trash2 size={20} />
+                  </button>
                 </div>
               </div>
             ))
