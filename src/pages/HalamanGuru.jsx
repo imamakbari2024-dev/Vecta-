@@ -139,7 +139,7 @@ export const KelolaKelas = () => {
 };
 
 // ==========================================
-// 2. FITUR KELOLA MATERI (KHUSUS DOKUMEN/VIDEO)
+// 2. FITUR KELOLA MATERI (UPLOAD DOKUMEN/VIDEO)
 // ==========================================
 export const KelolaMateri = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -150,6 +150,10 @@ export const KelolaMateri = () => {
   const [judul, setJudul] = useState('');
   const [tipe, setTipe] = useState('Modul Teks/PDF');
   const [linkMateri, setLinkMateri] = useState('');
+
+  // Konfigurasi Cloudinary
+  const CLOUD_NAME = "pnnyexrs"; 
+  const UPLOAD_PRESET = "vecta_upload";
 
   useEffect(() => {
     const unsubKelas = onSnapshot(query(collection(db, 'kelas'), orderBy('createdAt', 'desc')), (snapshot) => {
@@ -165,9 +169,26 @@ export const KelolaMateri = () => {
     return () => { unsubKelas(); unsubMateri(); };
   }, []);
 
+  // FUNGSI UPLOAD FILE MATERI
+  const uploadFileMateri = () => {
+    if (!window.cloudinary) return alert("Sistem upload sedang dimuat...");
+    window.cloudinary.createUploadWidget({
+      cloudName: CLOUD_NAME, 
+      uploadPreset: UPLOAD_PRESET, 
+      sources: ['local', 'url', 'google_drive'], 
+      resourceType: "auto", // "auto" membolehkan upload PDF, Word, MP4, dll
+      multiple: false
+    }, (error, result) => {
+      if (!error && result && result.event === "success") {
+        setLinkMateri(result.info.secure_url);
+        alert("File materi berhasil diunggah!");
+      }
+    }).open();
+  };
+
   const handleSimpanMateri = async (e) => {
     e.preventDefault();
-    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data!');
+    if (!kelasId || !judul || !linkMateri) return alert('Lengkapi semua data dan pastikan file sudah diunggah!');
     setLoading(true);
 
     try {
@@ -177,7 +198,7 @@ export const KelolaMateri = () => {
         namaKelas: kelasTerpilih.nama,
         judul,
         tipe,
-        link: linkMateri,
+        link: linkMateri, // Menyimpan URL hasil upload Cloudinary
         createdAt: serverTimestamp()
       });
       setJudul(''); setLinkMateri('');
@@ -199,7 +220,7 @@ export const KelolaMateri = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pustaka Materi</h1>
-        <p className="text-slate-500 dark:text-slate-400">Unggah dan kelola dokumen, modul, atau tautan video untuk siswa.</p>
+        <p className="text-slate-500 dark:text-slate-400">Unggah dokumen materi atau video pembelajaran untuk siswa.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -226,10 +247,18 @@ export const KelolaMateri = () => {
                 <option value="Video Pembelajaran">Video Pembelajaran</option>
               </select>
             </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Tautan / Link</label>
-              <input type="text" value={linkMateri} onChange={(e) => setLinkMateri(e.target.value)} placeholder="Masukkan link GDrive / YouTube" className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-blue-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white" />
+            
+            {/* AREA UPLOAD FILE */}
+            <div className="space-y-2 pt-2">
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Upload File Materi</label>
+              <button type="button" onClick={uploadFileMateri} className={`w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-xl transition-colors ${linkMateri ? 'border-green-500 bg-green-50 text-green-700' : 'border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-blue-400'}`}>
+                {linkMateri ? <CheckCircle size={32} className="mb-2" /> : <UploadCloud size={32} className="mb-2" />}
+                <span className="font-bold text-sm text-center">
+                  {linkMateri ? "File Siap Dipublikasikan ✅" : "Klik untuk Upload File (PDF/Word/Video)"}
+                </span>
+              </button>
             </div>
+
             <button type="submit" disabled={loading} className="w-full rounded-xl bg-blue-600 p-3 font-bold text-white transition hover:bg-blue-700 disabled:opacity-50 mt-4">
               {loading ? "Menyimpan..." : "Publikasikan Materi"}
             </button>
@@ -251,7 +280,12 @@ export const KelolaMateri = () => {
                     <p className="text-sm text-slate-500 dark:text-slate-400">{materi.namaKelas} • {materi.tipe}</p>
                   </div>
                 </div>
-                <button onClick={() => handleHapusMateri(materi.id)} className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 transition-colors" title="Hapus Materi"><Trash2 size={20} /></button>
+                <div className="flex items-center gap-2">
+                  <a href={materi.link} target="_blank" rel="noopener noreferrer" className="rounded-lg p-2.5 text-blue-500 hover:bg-blue-50 transition-colors" title="Lihat Materi">
+                    <FileText size={20} />
+                  </a>
+                  <button onClick={() => handleHapusMateri(materi.id)} className="rounded-lg p-2.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 transition-colors" title="Hapus Materi"><Trash2 size={20} /></button>
+                </div>
               </div>
             ))
           )}
@@ -262,7 +296,7 @@ export const KelolaMateri = () => {
 };
 
 // ==========================================
-// 2B. FITUR KELOLA VISUALISASI 3D (BARU)
+// 2B. FITUR KELOLA VISUALISASI 3D
 // ==========================================
 export const KelolaVisualisasi3D = () => {
   const [daftarKelas, setDaftarKelas] = useState([]);
@@ -284,7 +318,6 @@ export const KelolaVisualisasi3D = () => {
 
     const unsubMateri = onSnapshot(query(collection(db, 'materi'), orderBy('createdAt', 'desc')), (snapshot) => {
       const allMateri = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Filter: HANYA TAMPILKAN MATERI 3D
       setDaftar3D(allMateri.filter(m => m.tipe === 'Model 3D (.glb)'));
     });
 
@@ -552,7 +585,7 @@ export const TugasUjian = () => {
     { pertanyaan: '', a: '', b: '', c: '', d: '', kunci: 'A' }
   ]);
 
-  // Konfigurasi Cloudinary (Bisa pakai akun yang sama dengan fitur 3D)
+  // Konfigurasi Cloudinary
   const CLOUD_NAME = "pnnyexrs"; 
   const UPLOAD_PRESET = "vecta_upload";
 
@@ -575,7 +608,7 @@ export const TugasUjian = () => {
       cloudName: CLOUD_NAME, 
       uploadPreset: UPLOAD_PRESET, 
       sources: ['local', 'url', 'google_drive'], 
-      resourceType: "auto", // Membolehkan upload PDF, Word, dll
+      resourceType: "auto", 
       multiple: false
     }, (error, result) => {
       if (!error && result && result.event === "success") {
@@ -585,7 +618,6 @@ export const TugasUjian = () => {
     }).open();
   };
 
-  // FUNGSI MENGELOLA SOAL PILIHAN GANDA
   const handlePilganChange = (index, field, value) => {
     const newSoal = [...soalPilgan];
     newSoal[index][field] = value;
@@ -602,12 +634,10 @@ export const TugasUjian = () => {
     setSoalPilgan(newSoal);
   };
 
-  // FUNGSI SIMPAN KE FIREBASE
   const handleBuatTugas = async (e) => {
     e.preventDefault();
     if (!kelasId || !judulTugas || !batasWaktu) return alert('Lengkapi data wajib (Kelas, Judul, Batas Waktu)!');
     
-    // Validasi Sesuai Tipe
     if (tipeTugas === 'Essay' && !linkFileSoal) {
       return alert('Silakan upload dokumen soal untuk tipe Essay!');
     }
@@ -630,7 +660,6 @@ export const TugasUjian = () => {
         createdAt: serverTimestamp()
       };
 
-      // Simpan data spesifik berdasarkan tipe
       if (tipeTugas === 'Essay') {
         payload.fileSoal = linkFileSoal;
       } else {
@@ -639,7 +668,6 @@ export const TugasUjian = () => {
 
       await addDoc(collection(db, 'tugas'), payload);
       
-      // Reset Form
       setJudulTugas(''); 
       setLinkFileSoal(''); 
       setBatasWaktu('');
@@ -666,7 +694,6 @@ export const TugasUjian = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* FORMULIR PEMBUATAN SOAL */}
         <div className="lg:col-span-1">
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100 dark:bg-slate-800 dark:border-slate-700 sticky top-6">
             <h3 className="mb-4 text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
@@ -702,7 +729,6 @@ export const TugasUjian = () => {
 
               <div className="border-t border-slate-200 dark:border-slate-700 my-4 pt-4"></div>
 
-              {/* TAMPILAN JIKA TIPE ESSAY (UPLOAD DOKUMEN) */}
               {tipeTugas === 'Essay' && (
                 <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2">
                   <label className="block text-sm font-medium text-slate-600 dark:text-slate-300">Upload Dokumen Soal</label>
@@ -714,7 +740,6 @@ export const TugasUjian = () => {
                 </div>
               )}
 
-              {/* TAMPILAN JIKA TIPE PILIHAN GANDA (BUAT SOAL MANUAL) */}
               {tipeTugas === 'Pilihan Ganda' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                   {soalPilgan.map((soal, index) => (
@@ -754,7 +779,6 @@ export const TugasUjian = () => {
           </div>
         </div>
 
-        {/* DAFTAR TUGAS YANG SUDAH DIBUAT */}
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Daftar Evaluasi Aktif</h3>
           {daftarTugas.length === 0 ? (
