@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-
-// --- IMPORT FIREBASE UNTUK MEMBACA DATA REAL-TIME ---
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 
 export default function VectaAITutor() {
   const [messages, setMessages] = useState([]);
@@ -10,27 +8,21 @@ export default function VectaAITutor() {
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
 
-  // STATE UNTUK MENAMPUNG DATA PLATFORM (DIBACA OLEH 2 MATA AI)
   const [systemData, setSystemData] = useState({
     nama: 'Pengguna',
     role: 'Siswa',
     kelas: 'Memuat kelas...',
     nilaiTerakhir: 'Belum ada evaluasi',
-    konteksMateri: 'Memuat pustaka materi...' // <--- INI ADALAH MATA KEDUA (RAG MATERI)
+    konteksMateri: 'Memuat pustaka materi...'
   });
 
-  // Auto-scroll ke pesan terbaru
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ==========================================
-  // LOGIKA UTAMA: MEMBACA DATA DARI WEB VECTA (HYBRID RAG)
-  // ==========================================
   useEffect(() => {
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
       if (user) {
-        // 1. Deteksi Peran (Role)
         const isGuru = window.location.pathname.includes('/guru');
         const userRole = isGuru ? 'Guru' : 'Siswa';
         const username = user.displayName || user.email.split('@')[0];
@@ -38,7 +30,6 @@ export default function VectaAITutor() {
         setSystemData(prev => ({ ...prev, nama: username, role: userRole }));
 
         if (isGuru) {
-          // JIKA GURU: Ambil info mata pelajaran yang diampu
           const qKelas = query(collection(db, 'kelas'), orderBy('createdAt', 'desc'));
           onSnapshot(qKelas, (snapshot) => {
             const listKelas = snapshot.docs.map(doc => doc.data().nama).join(', ');
@@ -50,33 +41,27 @@ export default function VectaAITutor() {
             }));
           });
         } else {
-          // =========================================================
-          // MATA 1 (DYNAMIC CONTEXT): Tahu identitas, kelas, dan nilai
-          // =========================================================
+          // MATA 1: Tahu kelas siswa
           const qKelasSiswa = query(collection(db, 'kelas'), where('siswa', 'array-contains', user.uid));
           onSnapshot(qKelasSiswa, (snapshot) => {
             if (!snapshot.empty) {
               const listKelas = snapshot.docs.map(doc => doc.data().nama).join(', ');
-              const listKelasId = snapshot.docs.map(doc => doc.id); // Ambil ID untuk Mata ke-2
+              const listKelasId = snapshot.docs.map(doc => doc.id); 
               
               setSystemData(prev => ({ ...prev, kelas: listKelas || 'Belum masuk kelas' }));
 
-              // =========================================================
-              // MATA 2 (LIGHTWEIGHT RAG): Membaca pustaka materi dari Guru
-              // =========================================================
-              // AI mencari materi apa saja yang ada di kelas yang diikuti siswa ini
+              // MATA 2: Tahu materi guru
               if (listKelasId.length > 0) {
-                // Ambil maksimal 10 kelas (limitasi firebase 'in')
                 const qMateri = query(collection(db, 'materi'), where('kelasId', 'in', listKelasId.slice(0, 10)));
                 onSnapshot(qMateri, (materiSnap) => {
                   const rangkumanMateri = materiSnap.docs.map(doc => {
                     const m = doc.data();
-                    return `- [${m.tipe}] Judul: "${m.judul}". Info/Deskripsi: ${m.deskripsi || 'Materi inti kelas'}`;
+                    return `- [${m.tipe}] Judul: "${m.judul}". Info: ${m.deskripsi || 'Materi inti'}`;
                   }).join('\n');
                   
                   setSystemData(prev => ({ 
                     ...prev, 
-                    konteksMateri: rangkumanMateri || 'Guru belum mengunggah materi spesifik untuk kelas ini.' 
+                    konteksMateri: rangkumanMateri || 'Belum ada materi spesifik dari guru.' 
                   }));
                 });
               }
@@ -85,16 +70,18 @@ export default function VectaAITutor() {
             }
           });
 
-          // Ambil analisis nilai kuis terakhir siswa dari Firestore (Lanjutan Mata 1)
-          const qNilai = query(
-            collection(db, 'jawaban_siswa'),
-            where('siswaId', '==', user.uid),
-            orderBy('createdAt', 'desc'),
-            limit(1)
-          );
+          // PERBAIKAN ERROR FIREBASE INDEX: Tarik data lalu urutkan menggunakan JavaScript
+          const qNilai = query(collection(db, 'jawaban_siswa'), where('siswaId', '==', user.uid));
           onSnapshot(qNilai, (snapshot) => {
             if (!snapshot.empty) {
-              const dataTerakhir = snapshot.docs[0].data();
+              // Urutkan manual untuk menghindari error "The query requires an index"
+              const dataUrut = snapshot.docs.sort((a, b) => {
+                const waktuA = a.data().createdAt?.toMillis() || 0;
+                const waktuB = b.data().createdAt?.toMillis() || 0;
+                return waktuB - waktuA;
+              });
+              
+              const dataTerakhir = dataUrut[0].data();
               setSystemData(prev => ({
                 ...prev,
                 nilaiTerakhir: `Tugas "${dataTerakhir.judulTugas}" dengan Nilai: ${dataTerakhir.nilai || 'Belum dinilai'}`
@@ -108,36 +95,30 @@ export default function VectaAITutor() {
     return () => unsubscribeAuth();
   }, []);
 
-  // ==========================================
-  // STRUKTUR KONTEKS AI (SYSTEM PROMPT HYBRID)
-  // ==========================================
   const bangunSystemPrompt = () => {
-    return `Anda adalah Vecta AI, asisten virtual dan tutor cerdas yang terintegrasi langsung di dalam platform VectaLearning. Ikuti instruksi, identitas, dan aturan di bawah ini secara ketat:
+    return `Anda adalah Vecta AI, asisten virtual dan tutor cerdas yang terintegrasi langsung di dalam platform VectaLearning. 
 
 # 1. IDENTITAS & PERAN
 * Nama: Vecta AI
-* Peran: Asisten Pembelajaran Cerdas dan Tutor Pribadi berbasis Spatial Computing.
-* Tujuan: Membimbing pengguna belajar melalui proses berpikir yang terarah (Socratic Tutor). Jangan langsung memberi kunci jawaban/jawaban instan. Berikan petunjuk kecil, pancingan logika, atau analogi.
+* Peran: Asisten Pembelajaran Cerdas berbasis Spatial Computing.
+* Tujuan: Membimbing pengguna belajar melalui proses berpikir yang terarah (Socratic Tutor). Jika siswa menanyakan penyelesaian tugas, jangan langsung memberi jawaban akhir. Berikan petunjuk kecil, pancingan logika, atau analogi.
 
-# 2. [MATA PERTAMA] DATA PROFIL & STATUS PENGGUNA SAAT INI
-Gunakan informasi ini untuk mempersonalisasi percakapan (tanpa menyebut "Menurut database"):
+# 2. DATA PENGGUNA SAAT INI
 - Nama Pengguna: ${systemData.nama}
 - Peran: ${systemData.role}
 - Daftar Kelas Aktif: ${systemData.kelas}
 - Catatan Progres Terakhir: ${systemData.nilaiTerakhir}
 
-# 3. [MATA KEDUA] PUSTAKA MATERI KELAS (LIGHTWEIGHT RAG)
-Untuk memastikan bimbingan Anda sinkron dengan apa yang diajarkan oleh Guru, berikut adalah daftar referensi materi, dokumen, dan objek 3D yang sudah diunggah di kelas siswa ini:
---- MULAI DAFTAR MATERI ---
+# 3. PUSTAKA MATERI KELAS (LIGHTWEIGHT RAG)
+Berikut adalah materi yang diajarkan oleh guru di kelas siswa ini:
 ${systemData.konteksMateri}
---- AKHIR DAFTAR MATERI ---
 
-*ATURAN PENGGUNAAN MATA KEDUA:*
-- Jika siswa bertanya materi pelajaran, prioritaskan untuk mengaitkan/menyebutkan materi dari daftar di atas. (Contoh: "Mengingat kamu sedang mempelajari Model 3D Anatomi Jantung, tahukah kamu bagian mana yang memompa darah ke seluruh tubuh?")
-- Jika daftar materi kosong atau topik yang ditanyakan siswa tidak ada di daftar, gunakan pengetahuan akademik umum Anda yang sangat luas.
+*ATURAN PENGGUNAAN KONTEKS:*
+- Prioritaskan materi di atas jika pertanyaan siswa berkaitan dengannya.
+- JIKA MATERI KOSONG ATAU PERTANYAAN BERSIFAT UMUM (seperti "1 tambah 1", matematika dasar, IPA dasar, pengetahuan umum akademik): TETAP JAWAB dengan antusias menggunakan pengetahuan bawaan Anda yang luas. Anda bebas menjawab dan membimbing selama masih relevan dengan edukasi.
 
 # 4. BATASAN
-Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti gosip, hiburan, tebak-tebakan tidak mendidik, dll). Berbicaralah dengan ramah, profesional, dan gunakan Bahasa Indonesia yang baik.`;
+Hanya tolak secara sopan jika pengguna bertanya hal yang sepenuhnya tidak mendidik (seperti gosip artis, tebak-tebakan tidak senonoh, atau hal berbahaya). Gunakan Bahasa Indonesia yang ramah, interaktif, dan profesional.`;
   };
 
   const handleSend = async () => {
@@ -151,7 +132,6 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
     setLoading(true);
 
     try {
-      // Panggil fungsi pembentuk prompt yang sudah memuat data "2 Mata"
       const PROMPT_DINAMIS = bangunSystemPrompt();
 
       const apiMessages = [
@@ -176,7 +156,10 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
         })
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        // Ini akan menangkap jika Error 401 masih terjadi
+        throw new Error(`Koneksi ditolak (Status: ${response.status}). Pastikan VITE_GROQ_API_KEY valid dan server sudah di-restart.`);
+      }
 
       const data = await response.json();
       const aiResponseText = data.choices[0].message.content;
@@ -187,7 +170,7 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
       console.error("Groq API Error:", error);
       setMessages((prev) => [...prev, { 
         role: 'ai', 
-        content: 'Maaf, terjadi gangguan koneksi dengan server AI Vecta. Silakan coba lagi.' 
+        content: `Maaf, terjadi gangguan teknis. Info Error: ${error.message}` 
       }]);
     } finally {
       loading && setLoading(false);
@@ -201,7 +184,6 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
           <h2 className="text-xl font-bold text-white">Vecta AI Tutor</h2>
           <p className="text-sm text-slate-400">Arsitektur AI Orchestration (Hybrid RAG)</p>
         </div>
-        {/* Indikator Status "2 Mata" */}
         <div className="text-right flex flex-col gap-1 items-end">
           <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 font-medium">
             👁️ Mata 1: Dynamic Context Aktif
@@ -220,7 +202,7 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
             </div>
             <p className="text-center font-bold text-slate-300 text-lg">Halo {systemData.nama}, saya Vecta AI.</p>
             <p className="text-center text-sm max-w-md leading-relaxed">
-              Saya siap mendampingi Anda belajar di kelas <span className="text-blue-400 font-semibold">{systemData.kelas}</span>. Saya juga sudah membaca referensi materi dari guru Anda. Ada yang ingin ditanyakan?
+              Saya siap mendampingi Anda belajar di kelas <span className="text-blue-400 font-semibold">{systemData.kelas}</span>. Saya juga dapat berdiskusi mengenai pengetahuan umum. Ada yang ingin ditanyakan?
             </p>
           </div>
         )}
@@ -242,7 +224,7 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
               <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce"></div>
               <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce delay-100"></div>
               <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce delay-200"></div>
-              <span className="italic text-sm ml-2">Vecta AI sedang menganalisis materi...</span>
+              <span className="italic text-sm ml-2">Vecta AI sedang berpikir...</span>
             </div>
           </div>
         )}
@@ -256,7 +238,7 @@ Tolak dengan sopan jika pengguna bertanya tentang hal di luar akademik (seperti 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={`Tanya seputar kelas ${systemData.kelas} di sini...`}
+            placeholder={`Tanya seputar materi kelas atau ilmu umum di sini...`}
             className="flex-1 rounded-xl border border-slate-600 bg-slate-900 p-3.5 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none transition-all text-sm"
           />
           <button
