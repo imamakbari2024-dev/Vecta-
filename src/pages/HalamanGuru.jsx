@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical, UploadCloud, Trash2 } from 'lucide-react';
+import { Users, BookOpen, Route, FileEdit, BarChart2, User, Plus, Copy, Check, MoreVertical, UploadCloud, Trash2, CheckCircle, FileText } from 'lucide-react';
 
 // --- IMPORT FIREBASE ---
 import { db, auth } from '../lib/firebase';
