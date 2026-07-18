@@ -37,7 +37,7 @@ export default function VectaAITutor() {
               ...prev,
               kelas: listKelas || 'Belum membuat kelas',
               nilaiTerakhir: 'Guru (Akses Penilaian Siswa Aktif)',
-              konteksMateri: 'Anda adalah Guru. AI siap membantu Anda membuat silabus atau soal berdasarkan pengetahuan akademik umum.'
+              konteksMateri: 'Anda adalah Guru. AI siap membantu Anda membuat silabus atau soal.'
             }));
           });
         } else {
@@ -70,11 +70,10 @@ export default function VectaAITutor() {
             }
           });
 
-          // PERBAIKAN ERROR FIREBASE INDEX: Tarik data lalu urutkan menggunakan JavaScript
+          // Mengambil nilai terakhir siswa
           const qNilai = query(collection(db, 'jawaban_siswa'), where('siswaId', '==', user.uid));
           onSnapshot(qNilai, (snapshot) => {
             if (!snapshot.empty) {
-              // Urutkan manual untuk menghindari error "The query requires an index"
               const dataUrut = snapshot.docs.sort((a, b) => {
                 const waktuA = a.data().createdAt?.toMillis() || 0;
                 const waktuB = b.data().createdAt?.toMillis() || 0;
@@ -95,13 +94,22 @@ export default function VectaAITutor() {
     return () => unsubscribeAuth();
   }, []);
 
+  // ==========================================
+  // PERUBAHAN UTAMA: PROMPT SOKRATIK KETAT
+  // ==========================================
   const bangunSystemPrompt = () => {
-    return `Anda adalah Vecta AI, asisten virtual dan tutor cerdas yang terintegrasi langsung di dalam platform VectaLearning. 
+    return `Anda adalah Vecta AI, asisten virtual dan tutor cerdas yang terintegrasi di dalam platform VectaLearning. 
 
-# 1. IDENTITAS & PERAN
+# 1. IDENTITAS & ATURAN MUTLAK (SANGAT PENTING!)
 * Nama: Vecta AI
-* Peran: Asisten Pembelajaran Cerdas berbasis Spatial Computing.
-* Tujuan: Membimbing pengguna belajar melalui proses berpikir yang terarah (Socratic Tutor). Jika siswa menanyakan penyelesaian tugas, jangan langsung memberi jawaban akhir. Berikan petunjuk kecil, pancingan logika, atau analogi.
+* Peran: Tutor Sokratik (Socratic Tutor) yang membimbing pemikiran kritis siswa.
+* ATURAN NO. 1: Anda DILARANG KERAS memberikan jawaban akhir, hasil perhitungan, atau definisi instan atas pertanyaan siswa dalam kondisi apa pun.
+* Tugas Anda BUKAN menjawab soal, melainkan MEMBIMBING siswa menemukan jawabannya sendiri secara mandiri.
+* Gunakan pertanyaan pemantik, petunjuk bertahap (scaffolding), atau analogi sederhana untuk merangsang logika siswa.
+* CONTOH SIKAP WAJIB DIIKUTI:
+  - Jika siswa bertanya: "1 tambah 1 berapa?"
+  - DILARANG menjawab: "Jawabannya 2." atau "1 + 1 = 2."
+  - WAJIB menjawab seperti: "Coba bayangkan kamu punya satu buah apel, lalu temanmu memberikan satu apel lagi kepadamu. Kira-kira, sekarang ada berapa total apel di tanganmu?"
 
 # 2. DATA PENGGUNA SAAT INI
 - Nama Pengguna: ${systemData.nama}
@@ -109,16 +117,19 @@ export default function VectaAITutor() {
 - Daftar Kelas Aktif: ${systemData.kelas}
 - Catatan Progres Terakhir: ${systemData.nilaiTerakhir}
 
-# 3. PUSTAKA MATERI KELAS (LIGHTWEIGHT RAG)
-Berikut adalah materi yang diajarkan oleh guru di kelas siswa ini:
+# 3. PUSTAKA MATERI KELAS & PENGETAHUAN UMUM
+Berikut adalah materi dari guru di kelas siswa ini:
 ${systemData.konteksMateri}
 
-*ATURAN PENGGUNAAN KONTEKS:*
-- Prioritaskan materi di atas jika pertanyaan siswa berkaitan dengannya.
-- JIKA MATERI KOSONG ATAU PERTANYAAN BERSIFAT UMUM (seperti "1 tambah 1", matematika dasar, IPA dasar, pengetahuan umum akademik): TETAP JAWAB dengan antusias menggunakan pengetahuan bawaan Anda yang luas. Anda bebas menjawab dan membimbing selama masih relevan dengan edukasi.
+*ATURAN PENGGUNAAN MATERI:*
+- Jika pertanyaan terkait materi di atas, arahkan siswa untuk mengingat kembali konsep yang ada di materi tersebut dengan memberikan petunjuk.
+- Jika materi kosong ATAU siswa menanyakan hal umum di luar materi (seperti matematika dasar, sains dasar, dll), Anda TETAP WAJIB menggunakan metode Sokratik. Jangan pernah menyuapkan jawaban langsung meskipun itu pertanyaan yang sangat mudah.
 
-# 4. BATASAN
-Hanya tolak secara sopan jika pengguna bertanya hal yang sepenuhnya tidak mendidik (seperti gosip artis, tebak-tebakan tidak senonoh, atau hal berbahaya). Gunakan Bahasa Indonesia yang ramah, interaktif, dan profesional.`;
+# 4. GAYA BAHASA & BATASAN
+- Bersikaplah sangat sopan, hangat, sabar, dan suportif layaknya guru idaman. 
+- Berikan pujian jika siswa mencoba menjawab atau berani mengemukakan pendapatnya.
+- Gunakan Bahasa Indonesia yang santai namun mendidik.
+- Tolak secara halus pertanyaan yang tidak pantas, tidak edukatif, atau berbahaya, lalu arahkan fokus siswa kembali ke pembelajaran.`;
   };
 
   const handleSend = async () => {
@@ -157,7 +168,6 @@ Hanya tolak secara sopan jika pengguna bertanya hal yang sepenuhnya tidak mendid
       });
 
       if (!response.ok) {
-        // Ini akan menangkap jika Error 401 masih terjadi
         throw new Error(`Koneksi ditolak (Status: ${response.status}). Pastikan VITE_GROQ_API_KEY valid dan server sudah di-restart.`);
       }
 
@@ -202,7 +212,7 @@ Hanya tolak secara sopan jika pengguna bertanya hal yang sepenuhnya tidak mendid
             </div>
             <p className="text-center font-bold text-slate-300 text-lg">Halo {systemData.nama}, saya Vecta AI.</p>
             <p className="text-center text-sm max-w-md leading-relaxed">
-              Saya siap mendampingi Anda belajar di kelas <span className="text-blue-400 font-semibold">{systemData.kelas}</span>. Saya juga dapat berdiskusi mengenai pengetahuan umum. Ada yang ingin ditanyakan?
+              Saya siap mendampingi Anda belajar di kelas <span className="text-blue-400 font-semibold">{systemData.kelas}</span>. Mari kita berdiskusi dan temukan jawaban bersama-sama. Ada yang ingin ditanyakan?
             </p>
           </div>
         )}
@@ -224,7 +234,7 @@ Hanya tolak secara sopan jika pengguna bertanya hal yang sepenuhnya tidak mendid
               <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce"></div>
               <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce delay-100"></div>
               <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce delay-200"></div>
-              <span className="italic text-sm ml-2">Vecta AI sedang berpikir...</span>
+              <span className="italic text-sm ml-2">Vecta AI sedang menganalisis...</span>
             </div>
           </div>
         )}
